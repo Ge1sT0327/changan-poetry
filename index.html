@@ -427,7 +427,7 @@
 
     <script>
         /* ==========================================
-           1. 背景音乐控制（修复自动播放问题）
+           1. 背景音乐控制（修复 AbortError 问题）
            ========================================== */
         const bgMusic = document.getElementById('bgMusic');
         const musicControl = document.getElementById('musicControl');
@@ -444,6 +444,8 @@
 
         // 音乐播放状态标志
         let musicPlayed = false;
+        let isPlaying = false; // 防止重复操作
+        let playPromise = null;
 
         // 显示提示信息
         function showHint(text) {
@@ -483,55 +485,90 @@
             }, 3000);
         }
 
-        // 全局 toggleMusic 函数
-        window.toggleMusic = function(event) {
-            if (event) event.stopPropagation();
-            
-            if (bgMusic.paused) {
-                // 尝试播放
-                const playPromise = bgMusic.play();
-                
-                if (playPromise !== undefined) {
-                    playPromise.then(() => {
-                        // 播放成功
-                        musicControl.classList.remove('paused');
-                        musicControl.classList.add('playing');
-                        const path = musicIcon.querySelector('path');
-                        if (path) path.setAttribute('d', ICON_PAUSE);
-                        showHint('雅乐已启 🎵');
-                        musicPlayed = true;
-                    }).catch(err => {
-                        // 播放失败
-                        console.error('播放失败:', err);
-                        showHint('请点击页面任意处启用音乐');
-                        showInteractiveHint();
-                    });
-                }
+        // 更新UI图标
+        function updateMusicUI(isPlayingState) {
+            if (isPlayingState) {
+                musicControl.classList.remove('paused');
+                musicControl.classList.add('playing');
+                const path = musicIcon.querySelector('path');
+                if (path) path.setAttribute('d', ICON_PAUSE);
             } else {
-                // 暂停
-                bgMusic.pause();
                 musicControl.classList.remove('playing');
                 musicControl.classList.add('paused');
                 const path = musicIcon.querySelector('path');
                 if (path) path.setAttribute('d', ICON_PLAY);
+            }
+        }
+
+        // 全局 toggleMusic 函数 - 修复 AbortError
+        window.toggleMusic = function(event) {
+            if (event) event.stopPropagation();
+            
+            // 防止重复操作
+            if (isPlaying === !bgMusic.paused) {
+                return;
+            }
+            
+            if (bgMusic.paused) {
+                // 尝试播放
+                isPlaying = true;
+                
+                // 如果之前有未完成的播放请求，先取消
+                if (playPromise) {
+                    playPromise.catch(() => {});
+                }
+                
+                playPromise = bgMusic.play();
+                
+                if (playPromise !== undefined) {
+                    playPromise.then(() => {
+                        // 播放成功
+                        updateMusicUI(true);
+                        showHint('雅乐已启 🎵');
+                        musicPlayed = true;
+                        isPlaying = false;
+                        playPromise = null;
+                    }).catch(err => {
+                        // 播放失败
+                        console.error('播放失败:', err);
+                        if (err.name !== 'AbortError') {
+                            showHint('请点击页面任意处启用音乐');
+                            showInteractiveHint();
+                        }
+                        updateMusicUI(false);
+                        isPlaying = false;
+                        playPromise = null;
+                    });
+                }
+            } else {
+                // 暂停
+                isPlaying = true;
+                bgMusic.pause();
+                updateMusicUI(false);
                 showHint('雅乐已停');
                 musicPlayed = false;
+                isPlaying = false;
             }
         };
 
         // 用户首次点击页面任意位置时尝试播放音乐（解决浏览器自动播放策略）
+        let hasAttemptedAutoPlay = false;
+        
         function tryAutoPlayOnInteraction() {
-            if (!musicPlayed && bgMusic.paused) {
-                bgMusic.play().then(() => {
-                    musicControl.classList.remove('paused');
-                    musicControl.classList.add('playing');
-                    const path = musicIcon.querySelector('path');
-                    if (path) path.setAttribute('d', ICON_PAUSE);
-                    showHint('雅乐已启 🎵');
-                    musicPlayed = true;
-                }).catch(err => {
-                    console.log('等待用户主动点击音乐按钮');
-                });
+            if (!hasAttemptedAutoPlay && !musicPlayed && bgMusic.paused) {
+                hasAttemptedAutoPlay = true;
+                
+                const playAttempt = bgMusic.play();
+                if (playAttempt !== undefined) {
+                    playAttempt.then(() => {
+                        updateMusicUI(true);
+                        showHint('雅乐已启 🎵');
+                        musicPlayed = true;
+                    }).catch(err => {
+                        console.log('自动播放被阻止，等待用户主动点击');
+                        hasAttemptedAutoPlay = false;
+                    });
+                }
             }
         }
 
@@ -570,9 +607,10 @@
         let currentAnalysis = ""; 
         let currentPoetry = "";   
 
-        window.onload = function() {
+        // 确保 loadHistory 在页面加载时执行
+        setTimeout(() => {
             loadHistory();
-        };
+        }, 100);
 
         async function generateContent() {
             const keyword = document.getElementById('keywordInput').value.trim();
@@ -655,7 +693,7 @@
         function typeWriterEffect(text, element, callback) {
             element.innerHTML = '';
             let i = 0;
-            // 修复：正确处理换行符
+            // 正确处理换行符
             const lines = text.split('\n');
             let currentLine = 0;
             let charIndex = 0;
@@ -776,7 +814,7 @@
                 const div = document.createElement('div');
                 div.className = 'history-item';
                 // 修复：使用 RegExp 构造函数代替正则字面量
-                const previewText = item.poetry.split(new RegExp('[。！？]'))[0] || item.keyword;
+                const previewText = item.poetry ? item.poetry.split(new RegExp('[。！？]'))[0] || item.keyword : item.keyword;
 
                 div.innerHTML = `
                     <div class="history-title">意象：${item.keyword} (${item.genre})</div>
@@ -793,7 +831,11 @@
                     document.getElementById('styleSelect').value = item.style;
 
                     const outputArea = document.getElementById('poetryOutput');
-                    outputArea.innerHTML = item.poetry.replace(/([。！？])/g, '$1<br>');
+                    if (item.poetry) {
+                        outputArea.innerHTML = item.poetry.replace(/([。！？])/g, '$1<br>');
+                    } else {
+                        outputArea.innerHTML = "待客入长安，<br>落笔生云烟。";
+                    }
 
                     document.getElementById('analysisBtn').classList.remove('hidden');
                     document.getElementById('posterBtn').classList.remove('hidden');
