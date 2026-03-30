@@ -600,8 +600,7 @@
         function typeWriterEffect(text, element, callback) {
             element.innerHTML = '';
             let i = 0;
-            const formattedText = text.replace(/([。！？
-])/g, '$1<br>').replace(/<br><br>/g, '<br>').split(''); 
+            const formattedText = text.replace(/([。！？])/g, '$1<br>').replace(/<br><br>/g, '<br>').split(''); 
 
             const interval = setInterval(() => {
                 if (i < formattedText.length) {
