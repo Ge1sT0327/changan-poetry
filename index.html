@@ -32,7 +32,7 @@
             background-size: cover !important;
             background-position: center !important;
             background-repeat: no-repeat !important;
-            background-color: #1a1a1a; /* fallback */
+            background-color: #1a1a1a;
         }
         /* 半透明遮罩，提升文字可读性 */
         .background-layer::after {
@@ -357,15 +357,15 @@
             <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/>
         </svg>
     </div>
-    <div class="music-hint" id="musicHint">🎵 雅乐</div>
+    <div class="music-hint" id="musicHint">雅乐</div>
 
-    <!-- 音频：只使用本地文件，添加额外属性确保可播放 -->
-    <audio id="bgMusic" loop preload="auto" controlsList="nodownload">
+    <!-- 音频：只使用本地文件 -->
+    <audio id="bgMusic" loop preload="auto">
         <source src="./1.mp3" type="audio/mpeg">
     </audio>
 
     <!-- 背景层：JS 动态设置背景图以确保加载 -->
-    <div class="background-layer" id="bgLayer" style="background-image: url('./1.jpg'); background-size: cover; background-position: center;"></div>
+    <div class="background-layer" id="bgLayer" style="background-image: url('./1.jpg');"></div>
 
     <div id="posterArea">
         <div class="container" id="mainContainer">
@@ -391,12 +391,12 @@
                 </div>
 
                 <input type="text" id="keywordInput" placeholder="输入长安意象 (如: 大雁塔, 曲江流饮)">
-                <button id="generateBtn" onclick="generateContent()">🎋 智咏长安</button>
+                <button id="generateBtn" onclick="generateContent()">智咏长安</button>
 
                 <div class="action-buttons">
-                    <button class="btn-secondary hidden" id="analysisBtn" onclick="toggleAnalysis()">📜 诗意解签</button>
-                    <button class="btn-secondary hidden" id="posterBtn" onclick="exportPoster()">🖼️ 生成海报</button>
-                    <button class="btn-secondary" onclick="toggleHistory()">📚 游侠留墨</button>
+                    <button class="btn-secondary hidden" id="analysisBtn" onclick="toggleAnalysis()">诗意解签</button>
+                    <button class="btn-secondary hidden" id="posterBtn" onclick="exportPoster()">生成海报</button>
+                    <button class="btn-secondary" onclick="toggleHistory()">游侠留墨</button>
                 </div>
             </div>
 
@@ -413,21 +413,20 @@
 
     <div class="history-drawer" id="historyDrawer">
         <button class="close-btn" onclick="toggleHistory()">×</button>
-        <h2>📖 游侠留墨</h2>
+        <h2>游侠留墨</h2>
         <div id="historyList"></div>
     </div>
 
     <script>
         // ===================== 1. 背景图确认 =====================
         const bgLayer = document.getElementById('bgLayer');
-        // 确保背景图可见（如果加载失败，会显示黑色）
         const imgTest = new Image();
         imgTest.onload = () => {
-            console.log('背景图加载成功');
+            console.log('✅ 背景图加载成功: ./1.jpg');
             bgLayer.style.backgroundImage = "url('./1.jpg')";
         };
         imgTest.onerror = () => {
-            console.warn('背景图加载失败，保持黑色背景');
+            console.warn('❌ 背景图加载失败，使用纯色背景');
         };
         imgTest.src = './1.jpg';
 
@@ -440,11 +439,10 @@
         const ICON_PLAY = "M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z";
         const ICON_PAUSE = "M6 19h4V5H6v14zm8-14v14h4V5h-4z";
 
-        bgMusic.volume = 0.5;
+        bgMusic.volume = 0.8;   // 设置音量较大
         bgMusic.loop = true;
 
         let musicPlaying = false;
-        let autoPlayTriggered = false;
 
         function showHint(msg) {
             musicHint.textContent = msg;
@@ -468,15 +466,14 @@
             bgMusic.play().then(() => {
                 updateUI(true);
                 musicPlaying = true;
-                showHint('🎵 雅乐已启');
-                console.log('音乐播放成功');
+                showHint('雅乐已启');
+                console.log('✅ 音乐播放成功');
             }).catch(err => {
                 console.error('播放失败:', err);
-                showHint('点击页面任意处启用音乐');
-                // 如果失败，可以再次尝试
-                if (err.name === 'NotAllowedError') {
-                    // 等待用户交互
-                }
+                showHint('请点击页面任意处启用音乐');
+                // 播放失败时重置UI
+                updateUI(false);
+                musicPlaying = false;
             });
         }
 
@@ -484,7 +481,8 @@
             bgMusic.pause();
             updateUI(false);
             musicPlaying = false;
-            showHint('⏸️ 雅乐已停');
+            showHint('雅乐已停');
+            console.log('⏸️ 音乐暂停');
         }
 
         // 按钮点击事件
@@ -497,7 +495,8 @@
             }
         };
 
-        // 用户首次点击页面任意位置尝试自动播放
+        // 用户首次点击页面任意位置尝试自动播放（但需要用户主动点击）
+        let autoPlayTriggered = false;
         function tryAutoPlay() {
             if (autoPlayTriggered) return;
             autoPlayTriggered = true;
@@ -508,14 +507,13 @@
         document.body.addEventListener('click', tryAutoPlay, { once: true });
         document.body.addEventListener('touchstart', tryAutoPlay, { once: true });
 
-        // 音乐加载错误提示
-        bgMusic.addEventListener('error', () => {
-            console.warn('音乐文件加载失败');
-            showHint('⚠️ 未找到音乐文件 ./1.mp3');
-        });
-
+        // 音乐加载状态
         bgMusic.addEventListener('canplaythrough', () => {
-            console.log('音乐已就绪');
+            console.log('✅ 音乐文件加载成功，可播放');
+        });
+        bgMusic.addEventListener('error', () => {
+            console.warn('❌ 音乐文件加载失败');
+            showHint('未找到音乐文件 ./1.mp3');
         });
 
         // ===================== 3. AI 配置 =====================
@@ -540,7 +538,7 @@
                 div.className = 'history-item';
                 const preview = item.poetry ? item.poetry.split(new RegExp('[。！？]'))[0] : item.keyword;
                 div.innerHTML = `
-                    <div class="history-title">🏮 ${item.keyword} (${item.genre})</div>
+                    <div class="history-title">${item.keyword} (${item.genre})</div>
                     <div class="history-preview">${preview}...</div>
                     <div style="font-size:0.7rem; color:#888; margin-top:6px;">${item.date}</div>
                 `;
@@ -585,7 +583,7 @@
                 return;
             }
 
-            genBtn.innerText = '✍️ 挥毫中...';
+            genBtn.innerText = '挥毫中...';
             genBtn.disabled = true;
             analysisBtn.classList.add('hidden');
             posterBtn.classList.add('hidden');
@@ -627,7 +625,7 @@
                 currentAnalysis = parsed.analysis;
 
                 outputArea.innerHTML = currentPoetry.replace(/\n/g, '<br>');
-                genBtn.innerText = '🎋 智咏长安';
+                genBtn.innerText = '智咏长安';
                 genBtn.disabled = false;
                 analysisBtn.classList.remove('hidden');
                 posterBtn.classList.remove('hidden');
@@ -635,7 +633,7 @@
             } catch (err) {
                 console.error(err);
                 outputArea.innerHTML = '风烟迷眼，<br>墨迹难寻。<br>（请检查网络后重试）';
-                genBtn.innerText = '🎋 智咏长安';
+                genBtn.innerText = '智咏长安';
                 genBtn.disabled = false;
             }
         }
@@ -656,7 +654,7 @@
             const controls = document.getElementById('controlsArea');
             const btn = document.getElementById('posterBtn');
             controls.style.display = 'none';
-            btn.innerText = '🎨 绘制中...';
+            btn.innerText = '绘制中...';
             html2canvas(container, {
                 backgroundColor: '#1a1a1a',
                 scale: 2,
@@ -664,7 +662,7 @@
                 logging: false
             }).then(canvas => {
                 controls.style.display = 'flex';
-                btn.innerText = '🖼️ 生成海报';
+                btn.innerText = '生成海报';
                 const link = document.createElement('a');
                 link.download = `诗启长安_${Date.now()}.png`;
                 link.href = canvas.toDataURL('image/png');
@@ -673,7 +671,7 @@
                 console.error(err);
                 alert('生成失败，可重试');
                 controls.style.display = 'flex';
-                btn.innerText = '🖼️ 生成海报';
+                btn.innerText = '生成海报';
             });
         }
 
@@ -685,8 +683,9 @@
         window.addEventListener('load', () => {
             loadHistory();
             setTimeout(() => {
-                showHint('🎵 点击右上角音符开启雅乐');
+                showHint('点击右上角音符开启雅乐');
             }, 1000);
+            console.log('页面已加载，等待用户交互');
         });
     </script>
 </body>
