@@ -21,7 +21,7 @@
             color: #f9f6f0;
         }
 
-        /* 背景层 - 优先使用图片，失败则渐变 */
+        /* 背景层：确保图片覆盖且不被遮挡 */
         .background-layer {
             position: fixed;
             top: 0;
@@ -29,16 +29,12 @@
             width: 100%;
             height: 100%;
             z-index: -2;
-            background: linear-gradient(135deg, #2c2418 0%, #1a1a1a 100%);
-            transition: background-image 0.3s;
+            background-size: cover !important;
+            background-position: center !important;
+            background-repeat: no-repeat !important;
+            background-color: #1a1a1a; /* fallback */
         }
-        /* 图片背景（如果加载成功会覆盖渐变） */
-        .background-layer.has-image {
-            background-size: cover;
-            background-position: center;
-            background-repeat: no-repeat;
-        }
-        /* 半透明遮罩，让文字更清晰 */
+        /* 半透明遮罩，提升文字可读性 */
         .background-layer::after {
             content: '';
             position: absolute;
@@ -46,7 +42,7 @@
             left: 0;
             width: 100%;
             height: 100%;
-            background: rgba(0, 0, 0, 0.45);
+            background: rgba(0, 0, 0, 0.5);
             pointer-events: none;
         }
 
@@ -74,6 +70,7 @@
             border-radius: 16px;
             padding: 30px 40px;
             box-shadow: 0 0 40px rgba(194, 31, 48, 0.3);
+            z-index: 1;
         }
 
         .interaction-area {
@@ -175,6 +172,7 @@
             margin-top: 5px;
         }
 
+        /* 诗歌区域：竖排优化，增加滚动和断行保护 */
         .poetry-display {
             writing-mode: vertical-rl;
             text-orientation: upright;
@@ -184,10 +182,37 @@
             color: #f9f6f0;
             text-shadow: 1px 1px 3px #000;
             white-space: pre-wrap;
+            word-break: keep-all;
             overflow-y: auto;
             flex: 1;
             margin-left: 30px;
             letter-spacing: 4px;
+        }
+
+        /* 移动端改用横排 */
+        @media (max-width: 768px) {
+            .container {
+                flex-direction: column;
+                padding: 20px;
+                height: 90vh;
+            }
+            .interaction-area {
+                width: 100%;
+                text-align: center;
+            }
+            .poetry-display {
+                writing-mode: horizontal-tb;
+                font-size: 1.2rem;
+                margin-left: 0;
+                margin-top: 20px;
+                height: auto;
+                max-height: 50%;
+                text-align: center;
+            }
+            .select-group {
+                justify-content: center;
+            }
+            h1 { font-size: 2rem; }
         }
 
         /* 音乐控件 */
@@ -239,24 +264,6 @@
             white-space: nowrap;
         }
         .music-hint.show { opacity: 1; }
-
-        /* 调试信息栏（方便定位问题） */
-        .debug-panel {
-            position: fixed;
-            bottom: 10px;
-            left: 10px;
-            background: rgba(0,0,0,0.7);
-            color: #0f0;
-            font-family: monospace;
-            font-size: 10px;
-            padding: 4px 8px;
-            border-radius: 4px;
-            z-index: 9999;
-            pointer-events: none;
-            max-width: 300px;
-            white-space: pre-wrap;
-            word-break: break-all;
-        }
 
         /* 弹窗 */
         .analysis-modal {
@@ -340,53 +347,25 @@
             width: auto;
         }
         .hidden { display: none !important; }
-
-        @media (max-width: 768px) {
-            .container {
-                flex-direction: column;
-                padding: 20px;
-                height: 90vh;
-            }
-            .interaction-area {
-                width: 100%;
-                text-align: center;
-            }
-            .poetry-display {
-                writing-mode: horizontal-tb;
-                font-size: 1.2rem;
-                margin-left: 0;
-                margin-top: 20px;
-                height: auto;
-            }
-            .select-group {
-                justify-content: center;
-            }
-            h1 { font-size: 2rem; }
-        }
     </style>
 </head>
 <body>
 
     <!-- 背景音乐控件 -->
-    <div class="music-control paused" id="musicControl" onclick="toggleMusic()">
+    <div class="music-control paused" id="musicControl">
         <svg viewBox="0 0 24 24">
             <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/>
         </svg>
     </div>
     <div class="music-hint" id="musicHint">🎵 雅乐</div>
 
-    <!-- 音频：使用本地 mp3，增加 fallback 提示 -->
-    <audio id="bgMusic" loop preload="auto">
+    <!-- 音频：只使用本地文件，添加额外属性确保可播放 -->
+    <audio id="bgMusic" loop preload="auto" controlsList="nodownload">
         <source src="./1.mp3" type="audio/mpeg">
-        <!-- 备用在线音乐源，如果本地失败则尝试（可选） -->
-        <source src="https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3" type="audio/mpeg">
     </audio>
 
-    <!-- 背景层：先用渐变，动态加载图片 -->
-    <div class="background-layer" id="bgLayer"></div>
-
-    <!-- 调试面板 -->
-    <div class="debug-panel" id="debugPanel">初始化中...</div>
+    <!-- 背景层：JS 动态设置背景图以确保加载 -->
+    <div class="background-layer" id="bgLayer" style="background-image: url('./1.jpg'); background-size: cover; background-position: center;"></div>
 
     <div id="posterArea">
         <div class="container" id="mainContainer">
@@ -439,26 +418,18 @@
     </div>
 
     <script>
-        // ===================== 1. 调试与背景图加载 =====================
-        const debugPanel = document.getElementById('debugPanel');
-        function logDebug(msg) {
-            console.log(msg);
-            debugPanel.innerHTML = msg + '<br>' + debugPanel.innerHTML.split('<br>')[0];
-        }
-
-        // 尝试加载背景图片
+        // ===================== 1. 背景图确认 =====================
         const bgLayer = document.getElementById('bgLayer');
-        const bgImg = new Image();
-        bgImg.onload = () => {
-            bgLayer.style.backgroundImage = `url('./1.jpg')`;
-            bgLayer.classList.add('has-image');
-            logDebug('✅ 背景图加载成功: ./1.jpg');
+        // 确保背景图可见（如果加载失败，会显示黑色）
+        const imgTest = new Image();
+        imgTest.onload = () => {
+            console.log('背景图加载成功');
+            bgLayer.style.backgroundImage = "url('./1.jpg')";
         };
-        bgImg.onerror = () => {
-            logDebug('❌ 背景图加载失败: ./1.jpg (使用渐变背景)');
-            bgLayer.classList.remove('has-image');
+        imgTest.onerror = () => {
+            console.warn('背景图加载失败，保持黑色背景');
         };
-        bgImg.src = './1.jpg';
+        imgTest.src = './1.jpg';
 
         // ===================== 2. 音乐控制 =====================
         const bgMusic = document.getElementById('bgMusic');
@@ -469,21 +440,11 @@
         const ICON_PLAY = "M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z";
         const ICON_PAUSE = "M6 19h4V5H6v14zm8-14v14h4V5h-4z";
 
-        bgMusic.volume = 0.4;
+        bgMusic.volume = 0.5;
         bgMusic.loop = true;
 
         let musicPlaying = false;
-        let autoPlayTried = false;
-
-        // 检测音乐是否可播放
-        bgMusic.addEventListener('canplaythrough', () => {
-            logDebug('✅ 音乐文件加载成功，可播放');
-        });
-        bgMusic.addEventListener('error', (e) => {
-            logDebug('❌ 音乐文件加载失败: ./1.mp3 (将尝试备用源或静音)');
-            // 可选：显示提示让用户知道音乐无法播放
-            showHint('⚠️ 音乐文件未找到，可自行添加 ./1.mp3');
-        });
+        let autoPlayTriggered = false;
 
         function showHint(msg) {
             musicHint.textContent = msg;
@@ -503,43 +464,59 @@
             }
         }
 
-        window.toggleMusic = function(e) {
-            if (e) e.stopPropagation();
-            if (!bgMusic.paused) {
-                bgMusic.pause();
-                updateUI(false);
-                musicPlaying = false;
-                showHint('⏸️ 雅乐已停');
-                logDebug('音乐暂停');
-            } else {
-                bgMusic.play().then(() => {
-                    updateUI(true);
-                    musicPlaying = true;
-                    showHint('🎵 雅乐已启');
-                    logDebug('音乐播放中');
-                }).catch(err => {
-                    logDebug('播放失败: ' + err.message);
-                    showHint('👆 请点击页面任意处再试');
-                });
-            }
-        };
-
-        // 用户首次交互时自动尝试播放
-        function attemptAutoPlay() {
-            if (autoPlayTried) return;
-            autoPlayTried = true;
+        function playMusic() {
             bgMusic.play().then(() => {
                 updateUI(true);
                 musicPlaying = true;
                 showHint('🎵 雅乐已启');
-                logDebug('自动播放成功');
+                console.log('音乐播放成功');
             }).catch(err => {
-                logDebug('自动播放被阻止，需用户主动点击');
-                showHint('🎵 点击音符开启雅乐');
+                console.error('播放失败:', err);
+                showHint('点击页面任意处启用音乐');
+                // 如果失败，可以再次尝试
+                if (err.name === 'NotAllowedError') {
+                    // 等待用户交互
+                }
             });
         }
-        document.body.addEventListener('click', attemptAutoPlay, { once: true });
-        document.body.addEventListener('touchstart', attemptAutoPlay, { once: true });
+
+        function pauseMusic() {
+            bgMusic.pause();
+            updateUI(false);
+            musicPlaying = false;
+            showHint('⏸️ 雅乐已停');
+        }
+
+        // 按钮点击事件
+        musicControl.onclick = (e) => {
+            e.stopPropagation();
+            if (bgMusic.paused) {
+                playMusic();
+            } else {
+                pauseMusic();
+            }
+        };
+
+        // 用户首次点击页面任意位置尝试自动播放
+        function tryAutoPlay() {
+            if (autoPlayTriggered) return;
+            autoPlayTriggered = true;
+            if (bgMusic.paused) {
+                playMusic();
+            }
+        }
+        document.body.addEventListener('click', tryAutoPlay, { once: true });
+        document.body.addEventListener('touchstart', tryAutoPlay, { once: true });
+
+        // 音乐加载错误提示
+        bgMusic.addEventListener('error', () => {
+            console.warn('音乐文件加载失败');
+            showHint('⚠️ 未找到音乐文件 ./1.mp3');
+        });
+
+        bgMusic.addEventListener('canplaythrough', () => {
+            console.log('音乐已就绪');
+        });
 
         // ===================== 3. AI 配置 =====================
         const TEXT_API_KEY = '10f8cb84a6fe4f88941c205118151980.cOmaBThvE07AS0Od';
@@ -704,18 +681,13 @@
             document.getElementById('historyDrawer').classList.toggle('open');
         }
 
-        // 页面加载完成
+        // 页面启动
         window.addEventListener('load', () => {
             loadHistory();
             setTimeout(() => {
                 showHint('🎵 点击右上角音符开启雅乐');
-                logDebug('页面已加载，等待用户交互');
             }, 1000);
         });
-    </script>
-</body>
-</html>
-        }
     </script>
 </body>
 </html>
