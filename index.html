@@ -422,46 +422,42 @@
 
     <script>
         /* ==========================================
-           1. 背景音乐控制 - 新增功能
+           1. 背景音乐控制 (修复版)
            ========================================== */
-        let isMusicPlaying = false;
-        let musicInitialized = false;
         const bgMusic = document.getElementById('bgMusic');
         const musicControl = document.getElementById('musicControl');
         const musicHint = document.getElementById('musicHint');
         const musicIcon = document.getElementById('musicIcon');
 
-        // 音乐图标 SVG 路径
-        const playIconPath = "M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"; // 音符
-        const pauseIconPath = "M6 19h4V5H6v14zm8-14v14h4V5h-4z"; // 暂停
+        // 图标路径
+        const ICON_PLAY = "M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z";
+        const ICON_PAUSE = "M6 19h4V5H6v14zm8-14v14h4V5h-4z";
 
+        // 初始化音量
+        bgMusic.volume = 0.4; 
+
+        // 核心播放/暂停逻辑
         function toggleMusic() {
-            if (!musicInitialized) {
-                // 首次点击，初始化音频上下文（某些浏览器需要用户交互后才能播放）
-                bgMusic.volume = 0.3; // 设置初始音量为30%，营造淡雅氛围
-                musicInitialized = true;
-            }
-
-            if (isMusicPlaying) {
-                // 暂停播放
-                bgMusic.pause();
-                isMusicPlaying = false;
-                musicControl.classList.remove('playing');
-                musicControl.classList.add('paused');
-                musicIcon.querySelector('path').setAttribute('d', playIconPath);
-                showHint('雅乐已停');
-            } else {
-                // 开始播放
+            if (bgMusic.paused) {
+                // 尝试播放
                 bgMusic.play().then(() => {
-                    isMusicPlaying = true;
+                    // 播放成功
                     musicControl.classList.remove('paused');
                     musicControl.classList.add('playing');
-                    musicIcon.querySelector('path').setAttribute('d', pauseIconPath);
-                    showHint('雅乐轻启');
+                    musicIcon.querySelector('path').setAttribute('d', ICON_PAUSE);
+                    showHint('雅乐已启');
                 }).catch(err => {
-                    console.log('音频播放失败:', err);
-                    showHint('请点击页面任意处后再试');
+                    // 播放失败（通常是因为浏览器限制，提示用户）
+                    console.error(err);
+                    showHint('请再点一次');
                 });
+            } else {
+                // 暂停
+                bgMusic.pause();
+                musicControl.classList.remove('playing');
+                musicControl.classList.add('paused');
+                musicIcon.querySelector('path').setAttribute('d', ICON_PLAY);
+                showHint('雅乐已停');
             }
         }
 
@@ -473,29 +469,11 @@
             }, 2000);
         }
 
-        // 监听音频结束事件（虽然设置了loop，但以防万一）
-        bgMusic.addEventListener('ended', () => {
-            bgMusic.currentTime = 0;
-            bgMusic.play();
-        });
-
-        // 页面加载完成后，尝试自动播放（可能被浏览器阻止）
+        // 页面加载后的友好提示
         window.addEventListener('load', () => {
-            // 延迟尝试自动播放，但大多数现代浏览器需要用户交互
             setTimeout(() => {
-                if (bgMusic.paused && !isMusicPlaying) {
-                    showHint('点击右上角图标开启雅乐');
-                }
-            }, 1000);
-        });
-
-        // 监听页面可见性变化，当页面隐藏时暂停，显示时恢复（可选功能）
-        document.addEventListener('visibilitychange', () => {
-            if (document.hidden && isMusicPlaying) {
-                bgMusic.pause();
-            } else if (!document.hidden && isMusicPlaying) {
-                bgMusic.play();
-            }
+                showHint('点击右上角开启雅乐');
+            }, 1500);
         });
 
         /* ==========================================
