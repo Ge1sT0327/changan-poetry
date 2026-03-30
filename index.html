@@ -690,7 +690,7 @@
             history.forEach(item => {
                 const div = document.createElement('div');
                 div.className = 'history-item';
-                const previewText = item.poetry.split(/[。！？]/)[0] || item.keyword;
+                const previewText = item.poetry.split(new RegExp('[。！？]'))[0] || item.keyword;
 
                 div.innerHTML = `
                     <div class="history-title">意象：${item.keyword} (${item.genre})</div>
