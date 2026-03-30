@@ -2,12 +2,8 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>诗启长安 · 智咏征程</title>
-    <!-- 引入 html2canvas 用于海报生成 -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-    <!-- 引入 Howler.js 用于更可靠的音频控制 -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/howler/2.2.3/howler.min.js"></script>
     <style>
         * {
             margin: 0;
@@ -15,688 +11,631 @@
             box-sizing: border-box;
         }
 
-        body, html {
-            width: 100%;
-            height: 100%;
-            overflow: hidden;
-            font-family: "KaiTi", "华文楷书", "STKaiti", serif;
-            background-color: #1a1a1a;
-            color: #f9f6f0;
+        body {
+            font-family: 'Segoe UI', 'Noto Serif SC', 'Times New Roman', '宋体', serif;
+            background: #ffffff;
+            color: #1e2a2e;
+            line-height: 1.5;
+            padding: 2rem 1.5rem;
         }
 
-        /* 背景层：通过 JS 动态设置背景图，失败时使用深色渐变 */
-        .background-layer {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            z-index: -2;
-            background: linear-gradient(135deg, #2c2418 0%, #1a1a1a 100%);
-            transition: background-image 0.3s ease;
-        }
-        .background-layer.has-image {
-            background-size: cover;
-            background-position: center;
-            background-repeat: no-repeat;
-        }
-        /* 半透明遮罩，提升文字可读性 */
-        .background-layer::after {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.5);
-            pointer-events: none;
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
         }
 
-        #app {
-            width: 100%;
-            height: 100%;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            padding: 20px;
+        /* 头部 */
+        .header {
+            text-align: center;
+            margin-bottom: 2.5rem;
         }
 
-        .card {
-            position: relative;
-            width: 90vw;
-            max-width: 1300px;
-            height: 85vh;
-            display: flex;
-            flex-direction: row-reverse;
-            justify-content: space-between;
-            align-items: center;
-            background: rgba(26, 26, 26, 0.7);
-            backdrop-filter: blur(12px);
-            border: 1px solid #c21f30;
-            border-radius: 16px;
-            padding: 30px 40px;
-            box-shadow: 0 0 40px rgba(194, 31, 48, 0.3);
-            z-index: 1;
-        }
-
-        .controls {
-            width: 340px;
-            display: flex;
-            flex-direction: column;
-            gap: 18px;
-            z-index: 10;
-        }
-
-        h1 {
-            font-size: 2.8rem;
-            color: #c21f30;
-            margin: 0;
-            text-shadow: 2px 2px 6px rgba(0,0,0,0.5);
-            letter-spacing: 6px;
-        }
-
-        .subtitle {
-            color: #d4af37;
-            font-size: 1rem;
-            margin-top: -10px;
+        .header h1 {
+            font-size: 2.4rem;
+            font-weight: 500;
             letter-spacing: 2px;
+            color: #b91c1c;
+            margin-bottom: 0.25rem;
         }
 
-        .select-group {
+        .header p {
+            font-size: 0.9rem;
+            color: #4b5563;
+            border-top: 1px solid #e5e7eb;
+            display: inline-block;
+            padding-top: 0.5rem;
+        }
+
+        /* 控制栏 */
+        .controls {
+            background: #f9fafb;
+            padding: 1.5rem;
+            border-radius: 20px;
+            margin-bottom: 2rem;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+            border: 1px solid #eef2f6;
+        }
+
+        .row {
             display: flex;
-            gap: 12px;
-            justify-content: flex-end;
+            flex-wrap: wrap;
+            gap: 1rem;
+            margin-bottom: 1rem;
+            align-items: flex-end;
         }
 
-        select, input {
-            padding: 10px 14px;
-            font-size: 0.95rem;
+        .row:last-child {
+            margin-bottom: 0;
+        }
+
+        .field {
+            flex: 1;
+            min-width: 150px;
+        }
+
+        .field label {
+            display: block;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-weight: 600;
+            color: #6b7280;
+            margin-bottom: 0.3rem;
+        }
+
+        select, input, button {
+            width: 100%;
+            padding: 0.6rem 0.8rem;
+            font-size: 0.9rem;
             font-family: inherit;
-            background: rgba(0,0,0,0.6);
-            border: 1px solid #d4af37;
-            color: #f9f6f0;
-            border-radius: 8px;
-            outline: none;
+            border: 1px solid #d1d5db;
+            border-radius: 12px;
+            background: white;
+            transition: all 0.2s;
         }
 
         select:focus, input:focus {
-            border-color: #c21f30;
-            box-shadow: 0 0 8px rgba(194,31,48,0.5);
-        }
-
-        select {
-            cursor: pointer;
-            flex: 1;
-        }
-
-        input {
-            width: 100%;
+            outline: none;
+            border-color: #b91c1c;
+            box-shadow: 0 0 0 2px rgba(185,28,28,0.1);
         }
 
         button {
-            padding: 12px 20px;
-            font-size: 1.1rem;
-            font-weight: bold;
-            background: #c21f30;
-            color: #f9f6f0;
+            background: #b91c1c;
+            color: white;
+            font-weight: 500;
             border: none;
-            border-radius: 40px;
             cursor: pointer;
-            transition: all 0.2s;
-            letter-spacing: 2px;
+            transition: background 0.2s;
         }
 
         button:hover:not(:disabled) {
-            background: #a01725;
-            transform: scale(1.02);
-            box-shadow: 0 4px 15px rgba(194,31,48,0.4);
+            background: #991b1b;
         }
 
         button:disabled {
-            background: #555;
+            background: #9ca3af;
             cursor: not-allowed;
-            opacity: 0.6;
         }
 
-        .btn-secondary {
+        .btn-outline {
             background: transparent;
-            border: 1px solid #d4af37;
-            color: #d4af37;
-            padding: 8px 16px;
-            font-size: 0.9rem;
+            border: 1px solid #d1d5db;
+            color: #1f2937;
         }
 
-        .btn-secondary:hover {
-            background: rgba(212,175,55,0.2);
-            transform: none;
+        .btn-outline:hover:not(:disabled) {
+            background: #f3f4f6;
+            border-color: #b91c1c;
+            color: #b91c1c;
         }
 
-        .action-buttons {
+        .action-group {
             display: flex;
-            justify-content: flex-end;
-            gap: 12px;
-            margin-top: 5px;
+            gap: 0.8rem;
+            margin-top: 0.5rem;
         }
 
-        /* 诗词展示区域 */
-        .poetry-area {
-            writing-mode: vertical-rl;
-            text-orientation: upright;
-            font-size: 1.6rem;
-            line-height: 2.2;
-            height: 100%;
-            color: #f9f6f0;
-            text-shadow: 1px 1px 3px #000;
-            white-space: pre-wrap;
-            word-break: keep-all;
-            overflow-y: auto;
+        .action-group button {
             flex: 1;
-            margin-left: 30px;
-            letter-spacing: 4px;
         }
 
-        /* 移动端改为横排 */
-        @media (max-width: 768px) {
-            .card {
-                flex-direction: column;
-                padding: 20px;
-                height: 90vh;
-            }
-            .controls {
-                width: 100%;
-                text-align: center;
-            }
-            .poetry-area {
-                writing-mode: horizontal-tb;
-                font-size: 1.2rem;
-                margin-left: 0;
-                margin-top: 20px;
-                height: auto;
-                max-height: 50%;
-                text-align: center;
-            }
-            .select-group {
-                justify-content: center;
-            }
-            h1 { font-size: 2rem; }
+        /* 诗词展示区 — 横排 */
+        .poetry-card {
+            background: #ffffff;
+            border-radius: 24px;
+            border: 1px solid #eef2f6;
+            padding: 2rem 1.8rem;
+            margin-bottom: 1.5rem;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.02);
+            transition: all 0.2s;
         }
 
-        /* 音乐控制按钮 */
-        .music-btn {
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            width: 52px;
-            height: 52px;
-            border-radius: 50%;
-            background: rgba(0,0,0,0.7);
-            backdrop-filter: blur(5px);
-            border: 2px solid #d4af37;
-            cursor: pointer;
-            z-index: 1000;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            transition: all 0.3s;
-        }
-        .music-btn:hover {
-            transform: scale(1.05);
-            border-color: #c21f30;
-        }
-        .music-btn svg {
-            width: 28px;
-            height: 28px;
-            fill: #d4af37;
-        }
-        .music-btn.playing {
-            animation: rotate 8s linear infinite;
-        }
-        @keyframes rotate {
-            from { transform: rotate(0deg); }
-            to { transform: rotate(360deg); }
+        .poetry-text {
+            font-size: 1.25rem;
+            line-height: 1.8;
+            white-space: pre-wrap;
+            word-break: break-word;
+            text-align: left;
+            color: #1f2937;
+            font-weight: 450;
         }
 
-        /* 提示浮层 */
-        .toast {
-            position: fixed;
-            top: 82px;
-            right: 20px;
-            background: rgba(0,0,0,0.7);
-            padding: 6px 14px;
-            border-radius: 30px;
-            font-size: 0.75rem;
-            color: #d4af37;
-            opacity: 0;
-            transition: opacity 0.2s;
-            pointer-events: none;
-            white-space: nowrap;
-            z-index: 1001;
+        .empty-poetry {
+            color: #9ca3af;
+            font-style: italic;
         }
-        .toast.show { opacity: 1; }
 
-        /* 弹窗 */
+        /* 分析模态框 (简约) */
         .modal {
             display: none;
-            position: absolute;
-            inset: 0;
-            background: rgba(0,0,0,0.9);
-            backdrop-filter: blur(12px);
-            border-radius: 16px;
-            justify-content: center;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
             align-items: center;
-            flex-direction: column;
-            z-index: 20;
+            justify-content: center;
+            z-index: 1000;
         }
-        .modal-content {
-            max-width: 80%;
-            font-size: 1.2rem;
-            line-height: 1.8;
-            color: #d4af37;
-            margin-bottom: 30px;
-            text-align: center;
+
+        .modal-card {
+            background: white;
+            max-width: 500px;
+            width: 90%;
+            border-radius: 28px;
+            padding: 1.8rem;
+            box-shadow: 0 20px 35px -12px rgba(0,0,0,0.2);
+        }
+
+        .modal-card h3 {
+            font-size: 1.3rem;
+            margin-bottom: 1rem;
+            color: #b91c1c;
+        }
+
+        .modal-card p {
+            color: #374151;
+            line-height: 1.6;
+            margin-bottom: 1.5rem;
+        }
+
+        .modal-card button {
+            width: auto;
+            padding: 0.5rem 1.5rem;
+            background: #f3f4f6;
+            color: #1f2937;
+            border: 1px solid #e5e7eb;
+        }
+
+        .modal-card button:hover {
+            background: #e5e7eb;
         }
 
         /* 历史抽屉 */
         .drawer {
             position: fixed;
             top: 0;
-            right: -380px;
-            width: 340px;
+            right: -400px;
+            width: 360px;
             height: 100%;
-            background: rgba(20,20,20,0.98);
-            border-left: 2px solid #8c7322;
-            z-index: 200;
+            background: white;
+            box-shadow: -5px 0 25px rgba(0,0,0,0.1);
             transition: right 0.3s ease;
-            padding: 20px;
+            z-index: 1100;
+            display: flex;
+            flex-direction: column;
+            border-left: 1px solid #eef2f6;
+        }
+
+        .drawer.open {
+            right: 0;
+        }
+
+        .drawer-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1.2rem 1.5rem;
+            border-bottom: 1px solid #eef2f6;
+        }
+
+        .drawer-header h2 {
+            font-size: 1.2rem;
+            font-weight: 500;
+            color: #b91c1c;
+        }
+
+        .close-drawer {
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: #6b7280;
+            width: 32px;
+            padding: 0;
+        }
+
+        .history-list {
+            flex: 1;
             overflow-y: auto;
-            backdrop-filter: blur(8px);
+            padding: 1rem;
         }
-        .drawer.open { right: 0; }
-        .drawer h2 {
-            color: #d4af37;
-            text-align: center;
-            margin: 30px 0 20px;
-            border-bottom: 1px dashed #d4af37;
-            padding-bottom: 10px;
-        }
+
         .history-item {
-            background: rgba(0,0,0,0.5);
-            border: 1px solid #444;
-            border-radius: 8px;
-            padding: 12px;
-            margin-bottom: 12px;
+            background: #f9fafb;
+            border-radius: 16px;
+            padding: 1rem;
+            margin-bottom: 0.8rem;
             cursor: pointer;
             transition: all 0.2s;
+            border: 1px solid #f0f2f5;
         }
+
         .history-item:hover {
-            border-color: #c21f30;
-            background: rgba(194,31,48,0.1);
+            background: #fef2f2;
+            border-color: #fecaca;
         }
+
         .history-title {
-            color: #c21f30;
-            font-weight: bold;
-            margin-bottom: 6px;
+            font-weight: 600;
+            color: #b91c1c;
+            margin-bottom: 0.3rem;
         }
+
         .history-preview {
             font-size: 0.8rem;
-            color: #ccc;
+            color: #4b5563;
             overflow: hidden;
             text-overflow: ellipsis;
             white-space: nowrap;
         }
-        .close-btn {
-            position: absolute;
-            top: 10px;
-            left: 10px;
-            background: none;
-            border: none;
-            color: #fff;
-            font-size: 28px;
-            cursor: pointer;
-            width: auto;
+
+        .history-date {
+            font-size: 0.7rem;
+            color: #9ca3af;
+            margin-top: 0.4rem;
         }
-        .hidden { display: none !important; }
+
+        /* 提示toast简约 */
+        .toast {
+            position: fixed;
+            bottom: 24px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #1f2937;
+            color: white;
+            padding: 0.5rem 1.2rem;
+            border-radius: 40px;
+            font-size: 0.8rem;
+            opacity: 0;
+            transition: opacity 0.2s;
+            pointer-events: none;
+            z-index: 1200;
+            white-space: nowrap;
+        }
+
+        .toast.show {
+            opacity: 0.9;
+        }
+
+        hr {
+            margin: 1rem 0;
+            border: none;
+            border-top: 1px solid #eef2f6;
+        }
+
+        @media (max-width: 640px) {
+            body {
+                padding: 1rem;
+            }
+            .row {
+                flex-direction: column;
+                gap: 0.8rem;
+            }
+            .action-group {
+                flex-direction: column;
+            }
+            .poetry-text {
+                font-size: 1rem;
+            }
+            .drawer {
+                width: 280px;
+            }
+            .toast {
+                white-space: normal;
+                text-align: center;
+                width: auto;
+                max-width: 80%;
+            }
+        }
     </style>
 </head>
 <body>
-
-    <!-- 音乐控制按钮 -->
-    <div class="music-btn" id="musicBtn">
-        <svg viewBox="0 0 24 24">
-            <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/>
-        </svg>
+<div class="container">
+    <div class="header">
+        <h1>诗启长安</h1>
+        <p>AI 赋韵 · 智咏征程</p>
     </div>
-    <div class="toast" id="toastMsg"></div>
 
-    <!-- 音频元素：由 Howler 管理，但保留 HTML 元素作为备选 -->
-    <div id="app">
-        <div class="card">
-            <div class="controls">
-                <h1>诗启长安</h1>
-                <p class="subtitle">AI 赋能 · 智咏征程</p>
-
-                <div class="select-group">
-                    <select id="genreSelect">
-                        <option value="七言绝句">七言绝句</option>
-                        <option value="五言绝句">五言绝句</option>
-                        <option value="七言律诗">七言律诗</option>
-                        <option value="水调歌头">词牌·水调歌头</option>
-                        <option value="西江月">词牌·西江月</option>
-                    </select>
-                    <select id="styleSelect">
-                        <option value="豪迈磅礴">豪迈磅礴</option>
-                        <option value="婉约唯美">婉约唯美</option>
-                        <option value="苍凉悲壮">苍凉悲壮</option>
-                        <option value="空灵禅意">空灵禅意</option>
-                        <option value="思乡情切">思乡情切</option>
-                    </select>
-                </div>
-
-                <input type="text" id="keywordInput" placeholder="输入长安意象 (如: 大雁塔, 曲江流饮)">
+    <div class="controls">
+        <div class="row">
+            <div class="field">
+                <label>诗体</label>
+                <select id="genreSelect">
+                    <option value="七言绝句">七言绝句</option>
+                    <option value="五言绝句">五言绝句</option>
+                    <option value="七言律诗">七言律诗</option>
+                    <option value="水调歌头">词牌·水调歌头</option>
+                    <option value="西江月">词牌·西江月</option>
+                </select>
+            </div>
+            <div class="field">
+                <label>风格</label>
+                <select id="styleSelect">
+                    <option value="豪迈磅礴">豪迈磅礴</option>
+                    <option value="婉约唯美">婉约唯美</option>
+                    <option value="苍凉悲壮">苍凉悲壮</option>
+                    <option value="空灵禅意">空灵禅意</option>
+                    <option value="思乡情切">思乡情切</option>
+                </select>
+            </div>
+        </div>
+        <div class="row">
+            <div class="field" style="flex:2;">
+                <label>长安意象</label>
+                <input type="text" id="keywordInput" placeholder="例：大雁塔、曲江流饮、终南积雪">
+            </div>
+            <div class="field" style="flex:1;">
+                <label>&nbsp;</label>
                 <button id="generateBtn">智咏长安</button>
-
-                <div class="action-buttons">
-                    <button class="btn-secondary hidden" id="analysisBtn">诗意解签</button>
-                    <button class="btn-secondary hidden" id="posterBtn">生成海报</button>
-                    <button class="btn-secondary" id="historyBtn">游侠留墨</button>
-                </div>
             </div>
-
-            <div class="poetry-area" id="poetryArea">
-                待客入长安，<br>落笔生云烟。
-            </div>
-
-            <div class="modal" id="analysisModal">
-                <div class="modal-content" id="analysisContent"></div>
-                <button class="btn-secondary" id="closeAnalysisBtn">收起卷轴</button>
-            </div>
+        </div>
+        <div class="action-group">
+            <button id="analysisBtn" class="btn-outline" style="display: none;">诗意解签</button>
+            <button id="historyBtn" class="btn-outline">游侠留墨</button>
         </div>
     </div>
 
-    <div class="drawer" id="historyDrawer">
-        <button class="close-btn" id="closeDrawerBtn">×</button>
-        <h2>游侠留墨</h2>
-        <div id="historyList"></div>
+    <!-- 诗词展示区：横排简约 -->
+    <div class="poetry-card">
+        <div class="poetry-text" id="poetryArea">
+            待客入长安，落笔生云烟。
+        </div>
     </div>
+</div>
 
-    <script>
-        // ===================== 稳健的背景图加载 =====================
-        const bgLayer = document.createElement('div');
-        bgLayer.className = 'background-layer';
-        document.body.insertBefore(bgLayer, document.body.firstChild);
-        
-        function loadBackgroundImage(url) {
-            const img = new Image();
-            img.onload = () => {
-                bgLayer.style.backgroundImage = `url('${url}')`;
-                bgLayer.classList.add('has-image');
-                console.log('背景图加载成功:', url);
-                showToast('背景图已加载');
+<!-- 分析弹窗 -->
+<div id="analysisModal" class="modal">
+    <div class="modal-card">
+        <h3>📜 诗意解签</h3>
+        <p id="analysisContent">暂无赏析内容</p>
+        <button id="closeAnalysisBtn">收卷</button>
+    </div>
+</div>
+
+<!-- 历史抽屉 -->
+<div id="historyDrawer" class="drawer">
+    <div class="drawer-header">
+        <h2>游侠留墨</h2>
+        <button class="close-drawer" id="closeDrawerBtn">✕</button>
+    </div>
+    <div class="history-list" id="historyList"></div>
+</div>
+
+<div id="toastMsg" class="toast"></div>
+
+<script>
+    // ========== 智谱 AI 配置 ==========
+    const API_KEY = '10f8cb84a6fe4f88941c205118151980.cOmaBThvE07AS0Od';
+    const API_URL = 'https://open.bigmodel.cn/api/paas/v4/chat/completions';
+    const MODEL = 'glm-4.6v-flashx';
+
+    let currentPoetry = '';
+    let currentAnalysis = '';
+
+    // DOM 元素
+    const genreSelect = document.getElementById('genreSelect');
+    const styleSelect = document.getElementById('styleSelect');
+    const keywordInput = document.getElementById('keywordInput');
+    const generateBtn = document.getElementById('generateBtn');
+    const analysisBtn = document.getElementById('analysisBtn');
+    const historyBtn = document.getElementById('historyBtn');
+    const poetryArea = document.getElementById('poetryArea');
+    const analysisModal = document.getElementById('analysisModal');
+    const analysisContent = document.getElementById('analysisContent');
+    const closeAnalysisBtn = document.getElementById('closeAnalysisBtn');
+    const historyDrawer = document.getElementById('historyDrawer');
+    const closeDrawerBtn = document.getElementById('closeDrawerBtn');
+    const historyListDiv = document.getElementById('historyList');
+    const toastMsg = document.getElementById('toastMsg');
+
+    // 显示提示
+    function showToast(text, duration = 2200) {
+        toastMsg.textContent = text;
+        toastMsg.classList.add('show');
+        setTimeout(() => toastMsg.classList.remove('show'), duration);
+    }
+
+    // ========== 历史记录存储 ==========
+    function loadHistory() {
+        let history = JSON.parse(localStorage.getItem('changan_poetry_history')) || [];
+        historyListDiv.innerHTML = '';
+        if (history.length === 0) {
+            historyListDiv.innerHTML = '<div style="text-align:center; color:#9ca3af; padding:1rem;">暂无墨宝，快去挥毫吧</div>';
+            return;
+        }
+        history.forEach((item, idx) => {
+            const div = document.createElement('div');
+            div.className = 'history-item';
+            const preview = item.poetry ? item.poetry.split(/[。！？]/)[0] : item.keyword;
+            div.innerHTML = `
+                <div class="history-title">📝 ${escapeHtml(item.keyword)} (${item.genre})</div>
+                <div class="history-preview">${escapeHtml(preview)}…</div>
+                <div class="history-date">${item.date}</div>
+            `;
+            div.onclick = () => {
+                currentPoetry = item.poetry;
+                currentAnalysis = item.analysis;
+                keywordInput.value = item.keyword;
+                genreSelect.value = item.genre;
+                styleSelect.value = item.style;
+                poetryArea.innerHTML = escapeHtml(item.poetry).replace(/\n/g, '<br>');
+                analysisBtn.style.display = 'inline-block';
+                closeDrawer();
+                showToast(`重读《${item.keyword}》`, 1500);
             };
-            img.onerror = () => {
-                console.warn('背景图加载失败，使用默认渐变');
-                bgLayer.classList.remove('has-image');
-                showToast('背景图加载失败，使用默认背景');
-            };
-            img.src = url;
-        }
-        loadBackgroundImage('./1.jpg');
-
-        // ===================== 音频控制：使用 Howler.js 解决自动播放策略 =====================
-        let sound = null;
-        let isPlaying = false;
-
-        function initAudio() {
-            if (sound) return;
-            // 使用 Howler 创建音频实例
-            sound = new Howl({
-                src: ['./1.mp3'],
-                loop: true,
-                volume: 0.6,
-                autoplay: false,
-                html5: true,  // 使用 HTML5 Audio 以兼容移动端
-                onload: () => console.log('音频加载成功'),
-                onloaderror: () => {
-                    console.warn('音频加载失败，请检查 ./1.mp3');
-                    showToast('音乐文件未找到');
-                },
-                onplay: () => {
-                    isPlaying = true;
-                    updateMusicBtnUI(true);
-                },
-                onpause: () => {
-                    isPlaying = false;
-                    updateMusicBtnUI(false);
-                },
-                onend: () => {
-                    // 循环由 loop 处理，不需要额外操作
-                }
-            });
-        }
-
-        function toggleMusic() {
-            if (!sound) initAudio();
-            if (isPlaying) {
-                sound.pause();
-            } else {
-                // 尝试播放（浏览器会自动处理用户交互许可）
-                sound.play();
-            }
-        }
-
-        function updateMusicBtnUI(playing) {
-            const btn = document.getElementById('musicBtn');
-            const path = btn.querySelector('svg path');
-            if (playing) {
-                btn.classList.add('playing');
-                path.setAttribute('d', "M6 19h4V5H6v14zm8-14v14h4V5h-4z");
-            } else {
-                btn.classList.remove('playing');
-                path.setAttribute('d', "M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z");
-            }
-        }
-
-        // 绑定音乐按钮事件
-        document.getElementById('musicBtn').addEventListener('click', (e) => {
-            e.stopPropagation();
-            toggleMusic();
+            historyListDiv.appendChild(div);
         });
+    }
 
-        // 首次用户交互时初始化音频（符合浏览器策略）
-        let audioInitialized = false;
-        function onUserInteraction() {
-            if (!audioInitialized) {
-                audioInitialized = true;
-                initAudio();
-                // 可选：尝试自动播放（但大多数情况会被阻止，需要用户再点一次）
-                // 这里不自动播放，让用户主动点击音乐按钮，更可靠
-                showToast('点击音符开启雅乐');
-            }
-        }
-        document.body.addEventListener('click', onUserInteraction, { once: true });
-        document.body.addEventListener('touchstart', onUserInteraction, { once: true });
+    function saveToHistory(keyword, genre, style, poetry, analysis) {
+        let history = JSON.parse(localStorage.getItem('changan_poetry_history')) || [];
+        history.unshift({
+            id: Date.now(),
+            keyword, genre, style, poetry, analysis,
+            date: new Date().toLocaleString()
+        });
+        if (history.length > 20) history.pop();
+        localStorage.setItem('changan_poetry_history', JSON.stringify(history));
+        loadHistory();
+    }
 
-        // ===================== AI 接口 =====================
-        const API_KEY = '10f8cb84a6fe4f88941c205118151980.cOmaBThvE07AS0Od';
-        const API_URL = 'https://open.bigmodel.cn/api/paas/v4/chat/completions';
-        const MODEL = 'glm-4.6v-flashx';
+    function escapeHtml(str) {
+        if (!str) return '';
+        return str.replace(/[&<>]/g, function(m) {
+            if (m === '&') return '&amp;';
+            if (m === '<') return '&lt;';
+            if (m === '>') return '&gt;';
+            return m;
+        }).replace(/[\uD800-\uDBFF][\uDC00-\uDFFF]/g, function(c) {
+            return c;
+        });
+    }
 
-        let currentPoetry = '';
-        let currentAnalysis = '';
+    // ========== AI 生成诗词 ==========
+    async function generatePoetry() {
+        const keyword = keywordInput.value.trim();
+        const genre = genreSelect.value;
+        const style = styleSelect.value;
 
-        // 历史记录
-        function loadHistory() {
-            const historyList = document.getElementById('historyList');
-            let history = JSON.parse(localStorage.getItem('changan_poetry_history')) || [];
-            historyList.innerHTML = '';
-            if (history.length === 0) {
-                historyList.innerHTML = '<p style="text-align:center; color:#888;">暂无墨宝，快去挥毫吧！</p>';
-                return;
-            }
-            history.forEach(item => {
-                const div = document.createElement('div');
-                div.className = 'history-item';
-                const preview = item.poetry ? item.poetry.split(new RegExp('[。！？]'))[0] : item.keyword;
-                div.innerHTML = `
-                    <div class="history-title">${item.keyword} (${item.genre})</div>
-                    <div class="history-preview">${preview}...</div>
-                    <div style="font-size:0.7rem; color:#888; margin-top:6px;">${item.date}</div>
-                `;
-                div.onclick = () => {
-                    currentPoetry = item.poetry;
-                    currentAnalysis = item.analysis;
-                    document.getElementById('keywordInput').value = item.keyword;
-                    document.getElementById('genreSelect').value = item.genre;
-                    document.getElementById('styleSelect').value = item.style;
-                    document.getElementById('poetryArea').innerHTML = item.poetry.replace(/\n/g, '<br>');
-                    document.getElementById('analysisBtn').classList.remove('hidden');
-                    document.getElementById('posterBtn').classList.remove('hidden');
-                    toggleDrawer();
-                };
-                historyList.appendChild(div);
-            });
+        if (!keyword) {
+            showToast('请先输入长安意象（关键词）');
+            return;
         }
 
-        function saveToHistory(keyword, genre, style, poetry, analysis) {
-            let history = JSON.parse(localStorage.getItem('changan_poetry_history')) || [];
-            history.unshift({
-                id: Date.now(),
-                keyword, genre, style, poetry, analysis,
-                date: new Date().toLocaleString()
-            });
-            if (history.length > 20) history.pop();
-            localStorage.setItem('changan_poetry_history', JSON.stringify(history));
-            loadHistory();
-        }
+        generateBtn.disabled = true;
+        generateBtn.textContent = '挥毫中...';
+        poetryArea.innerHTML = '<span style="color:#9ca3af;">✍️ 诗思如泉涌，稍候片刻...</span>';
+        analysisBtn.style.display = 'none';
 
-        async function generateContent() {
-            const keyword = document.getElementById('keywordInput').value.trim();
-            const genre = document.getElementById('genreSelect').value;
-            const style = document.getElementById('styleSelect').value;
-            const poetryArea = document.getElementById('poetryArea');
-            const genBtn = document.getElementById('generateBtn');
-            const analysisBtn = document.getElementById('analysisBtn');
-            const posterBtn = document.getElementById('posterBtn');
-
-            if (!keyword) {
-                alert('请赐教长安意象（输入关键词）！');
-                return;
-            }
-
-            genBtn.innerText = '挥毫中...';
-            genBtn.disabled = true;
-            analysisBtn.classList.add('hidden');
-            posterBtn.classList.add('hidden');
-            poetryArea.innerHTML = '<span class="cursor"></span>';
-            currentAnalysis = '';
-
-            const systemPrompt = `你是一位才华横溢的大唐诗人。请根据用户提供的关键词、体裁和风格进行创作。
+        const systemPrompt = `你是一位才华横溢的大唐诗人。请根据用户提供的关键词、体裁和风格进行创作。
 要求：
 1. 意象需紧扣"长安文脉"与"陕西特色"，并将用户提供的关键词自然融入诗意之中。
 2. 切忌每首诗都以"长安"二字开篇！起句必须灵动多样。
 3. 语言需严格符合所选古诗词格律与平仄，意境深远。
 4. 必须严格以 JSON 格式返回，包含两个字段："poetry" (诗歌正文，用\\n表示换行) 和 "analysis" (现代白话文赏析，50-80字)。只输出 JSON。`;
 
-            const userPrompt = `关键词：${keyword}；体裁：${genre}；风格：${style}`;
+        const userPrompt = `关键词：${keyword}；体裁：${genre}；风格：${style}`;
 
-            try {
-                const res = await fetch(API_URL, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${API_KEY}`
-                    },
-                    body: JSON.stringify({
-                        model: MODEL,
-                        messages: [
-                            { role: 'system', content: systemPrompt },
-                            { role: 'user', content: userPrompt }
-                        ],
-                        temperature: 0.85,
-                        response_format: { type: 'json_object' }
-                    })
-                });
-                if (!res.ok) throw new Error('API请求失败');
-                const data = await res.json();
-                let content = data.choices[0].message.content;
-                content = content.replace(/```json\s*/gi, '').replace(/```\s*/gi, '').trim();
-                const parsed = JSON.parse(content);
-                currentPoetry = parsed.poetry;
-                currentAnalysis = parsed.analysis;
-
-                poetryArea.innerHTML = currentPoetry.replace(/\n/g, '<br>');
-                genBtn.innerText = '智咏长安';
-                genBtn.disabled = false;
-                analysisBtn.classList.remove('hidden');
-                posterBtn.classList.remove('hidden');
-                saveToHistory(keyword, genre, style, currentPoetry, currentAnalysis);
-            } catch (err) {
-                console.error(err);
-                poetryArea.innerHTML = '风烟迷眼，<br>墨迹难寻。<br>（请检查网络后重试）';
-                genBtn.innerText = '智咏长安';
-                genBtn.disabled = false;
-            }
-        }
-
-        function showAnalysis() {
-            const modal = document.getElementById('analysisModal');
-            const contentDiv = document.getElementById('analysisContent');
-            contentDiv.innerText = currentAnalysis || '暂无赏析内容';
-            modal.style.display = 'flex';
-        }
-
-        function closeAnalysis() {
-            document.getElementById('analysisModal').style.display = 'none';
-        }
-
-        function exportPoster() {
-            const card = document.querySelector('.card');
-            const controls = document.querySelector('.controls');
-            const btn = document.getElementById('posterBtn');
-            controls.style.display = 'none';
-            btn.innerText = '绘制中...';
-            html2canvas(card, {
-                backgroundColor: '#1a1a1a',
-                scale: 2,
-                useCORS: true,
-                logging: false
-            }).then(canvas => {
-                controls.style.display = 'flex';
-                btn.innerText = '生成海报';
-                const link = document.createElement('a');
-                link.download = `诗启长安_${Date.now()}.png`;
-                link.href = canvas.toDataURL('image/png');
-                link.click();
-            }).catch(err => {
-                console.error(err);
-                alert('生成失败，可重试');
-                controls.style.display = 'flex';
-                btn.innerText = '生成海报';
+        try {
+            const response = await fetch(API_URL, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${API_KEY}`
+                },
+                body: JSON.stringify({
+                    model: MODEL,
+                    messages: [
+                        { role: 'system', content: systemPrompt },
+                        { role: 'user', content: userPrompt }
+                    ],
+                    temperature: 0.85,
+                    response_format: { type: 'json_object' }
+                })
             });
+
+            if (!response.ok) {
+                throw new Error(`API请求失败 ${response.status}`);
+            }
+
+            const data = await response.json();
+            let content = data.choices[0].message.content;
+            // 清理可能的markdown标记
+            content = content.replace(/```json\s*/gi, '').replace(/```\s*/gi, '').trim();
+            const parsed = JSON.parse(content);
+            currentPoetry = parsed.poetry;
+            currentAnalysis = parsed.analysis;
+
+            poetryArea.innerHTML = escapeHtml(currentPoetry).replace(/\n/g, '<br>');
+            analysisBtn.style.display = 'inline-block';
+            saveToHistory(keyword, genre, style, currentPoetry, currentAnalysis);
+            showToast('✅ 新诗已成，可点击“诗意解签”');
+        } catch (err) {
+            console.error(err);
+            poetryArea.innerHTML = '🌿 诗成遇风雨，请稍后再试。';
+            showToast('生成失败，请检查网络后重试', 2500);
+        } finally {
+            generateBtn.disabled = false;
+            generateBtn.textContent = '智咏长安';
         }
+    }
 
-        function toggleDrawer() {
-            document.getElementById('historyDrawer').classList.toggle('open');
+    // 显示分析弹窗
+    function showAnalysis() {
+        if (!currentAnalysis) {
+            showToast('暂无赏析内容，请先创作一首诗');
+            return;
         }
+        analysisContent.textContent = currentAnalysis;
+        analysisModal.style.display = 'flex';
+    }
 
-        function showToast(msg) {
-            const toast = document.getElementById('toastMsg');
-            toast.textContent = msg;
-            toast.classList.add('show');
-            setTimeout(() => toast.classList.remove('show'), 2500);
+    function closeAnalysisModal() {
+        analysisModal.style.display = 'none';
+    }
+
+    // 抽屉控制
+    function openDrawer() {
+        historyDrawer.classList.add('open');
+        loadHistory(); // 每次打开时刷新，保证最新
+    }
+
+    function closeDrawer() {
+        historyDrawer.classList.remove('open');
+    }
+
+    function toggleDrawer() {
+        if (historyDrawer.classList.contains('open')) {
+            closeDrawer();
+        } else {
+            openDrawer();
         }
+    }
 
-        // 绑定事件
-        document.getElementById('generateBtn').addEventListener('click', generateContent);
-        document.getElementById('analysisBtn').addEventListener('click', showAnalysis);
-        document.getElementById('closeAnalysisBtn').addEventListener('click', closeAnalysis);
-        document.getElementById('posterBtn').addEventListener('click', exportPoster);
-        document.getElementById('historyBtn').addEventListener('click', toggleDrawer);
-        document.getElementById('closeDrawerBtn').addEventListener('click', toggleDrawer);
+    // 点击模态背景关闭
+    window.onclick = function(event) {
+        if (event.target === analysisModal) {
+            closeAnalysisModal();
+        }
+    };
 
-        // 页面初始化
-        loadHistory();
-        setTimeout(() => showToast('点击右上角音符开启雅乐'), 800);
-    </script>
+    // 绑定事件
+    generateBtn.addEventListener('click', generatePoetry);
+    analysisBtn.addEventListener('click', showAnalysis);
+    closeAnalysisBtn.addEventListener('click', closeAnalysisModal);
+    historyBtn.addEventListener('click', toggleDrawer);
+    closeDrawerBtn.addEventListener('click', closeDrawer);
+
+    // 初始化历史
+    loadHistory();
+
+    // 增加初次提示（不强制）
+    setTimeout(() => {
+        showToast('📖 输入长安意象，点击智咏长安', 2800);
+    }, 500);
+</script>
 </body>
 </html>
