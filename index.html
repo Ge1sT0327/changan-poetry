@@ -349,6 +349,13 @@
         }
 
         .hidden { display: none !important; }
+        
+        /* 交互提示动画 */
+        @keyframes fadeOut {
+            0% { opacity: 1; transform: translateX(-50%) translateY(0); }
+            70% { opacity: 1; transform: translateX(-50%) translateY(0); }
+            100% { opacity: 0; transform: translateX(-50%) translateY(-20px); }
+        }
     </style>
 </head>
 <body>
@@ -361,7 +368,7 @@
     </div>
     <div class="music-hint" id="musicHint">雅乐</div>
 
-    <audio id="bgMusic" loop preload="auto">
+    <audio id="bgMusic" loop preload="auto" crossorigin="anonymous">
         <source src="./1.mp3" type="audio/mpeg">
         您的浏览器不支持音频播放。
     </audio>
@@ -420,7 +427,7 @@
 
     <script>
         /* ==========================================
-           1. 背景音乐控制
+           1. 背景音乐控制（修复自动播放问题）
            ========================================== */
         const bgMusic = document.getElementById('bgMusic');
         const musicControl = document.getElementById('musicControl');
@@ -432,26 +439,76 @@
         const ICON_PAUSE = "M6 19h4V5H6v14zm8-14v14h4V5h-4z";
 
         // 初始化音量
-        bgMusic.volume = 0.4; 
-        
-        // 页面加载后尝试自动播放（需要用户交互）
+        bgMusic.volume = 0.5;
+        bgMusic.loop = true;
+
+        // 音乐播放状态标志
         let musicPlayed = false;
 
+        // 显示提示信息
+        function showHint(text) {
+            musicHint.textContent = text;
+            musicHint.classList.add('show');
+            setTimeout(() => {
+                musicHint.classList.remove('show');
+            }, 2000);
+        }
+
+        // 显示交互提示（底部居中）
+        function showInteractiveHint() {
+            const hint = document.createElement('div');
+            hint.textContent = '🎵 点击右上角音符或页面任意处开启雅乐 🎵';
+            hint.style.cssText = `
+                position: fixed;
+                bottom: 30px;
+                left: 50%;
+                transform: translateX(-50%);
+                background: rgba(212, 175, 55, 0.95);
+                color: #1a1a1a;
+                padding: 12px 24px;
+                border-radius: 40px;
+                font-size: 1rem;
+                z-index: 10000;
+                font-family: "KaiTi", serif;
+                animation: fadeOut 3s ease forwards;
+                pointer-events: none;
+                white-space: nowrap;
+                box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+                font-weight: bold;
+            `;
+            document.body.appendChild(hint);
+            
+            setTimeout(() => {
+                if (hint.parentNode) hint.parentNode.removeChild(hint);
+            }, 3000);
+        }
+
         // 全局 toggleMusic 函数
-        window.toggleMusic = function() {
+        window.toggleMusic = function(event) {
+            if (event) event.stopPropagation();
+            
             if (bgMusic.paused) {
-                bgMusic.play().then(() => {
-                    musicControl.classList.remove('paused');
-                    musicControl.classList.add('playing');
-                    const path = musicIcon.querySelector('path');
-                    if (path) path.setAttribute('d', ICON_PAUSE);
-                    showHint('雅乐已启');
-                    musicPlayed = true;
-                }).catch(err => {
-                    console.error('播放失败:', err);
-                    showHint('请点击页面任意处');
-                });
+                // 尝试播放
+                const playPromise = bgMusic.play();
+                
+                if (playPromise !== undefined) {
+                    playPromise.then(() => {
+                        // 播放成功
+                        musicControl.classList.remove('paused');
+                        musicControl.classList.add('playing');
+                        const path = musicIcon.querySelector('path');
+                        if (path) path.setAttribute('d', ICON_PAUSE);
+                        showHint('雅乐已启 🎵');
+                        musicPlayed = true;
+                    }).catch(err => {
+                        // 播放失败
+                        console.error('播放失败:', err);
+                        showHint('请点击页面任意处启用音乐');
+                        showInteractiveHint();
+                    });
+                }
             } else {
+                // 暂停
                 bgMusic.pause();
                 musicControl.classList.remove('playing');
                 musicControl.classList.add('paused');
@@ -462,14 +519,6 @@
             }
         };
 
-        function showHint(text) {
-            musicHint.textContent = text;
-            musicHint.classList.add('show');
-            setTimeout(() => {
-                musicHint.classList.remove('show');
-            }, 2000);
-        }
-
         // 用户首次点击页面任意位置时尝试播放音乐（解决浏览器自动播放策略）
         function tryAutoPlayOnInteraction() {
             if (!musicPlayed && bgMusic.paused) {
@@ -478,21 +527,36 @@
                     musicControl.classList.add('playing');
                     const path = musicIcon.querySelector('path');
                     if (path) path.setAttribute('d', ICON_PAUSE);
-                    showHint('雅乐已启');
+                    showHint('雅乐已启 🎵');
                     musicPlayed = true;
-                }).catch(() => {});
+                }).catch(err => {
+                    console.log('等待用户主动点击音乐按钮');
+                });
             }
         }
 
         // 页面加载后的友好提示
         window.addEventListener('load', () => {
             setTimeout(() => {
-                showHint('点击右上角开启雅乐');
-            }, 1500);
+                showHint('点击右上角音符开启雅乐');
+                showInteractiveHint();
+            }, 1000);
             
-            // 监听用户交互
-            document.body.addEventListener('click', tryAutoPlayOnInteraction);
-            document.body.addEventListener('touchstart', tryAutoPlayOnInteraction);
+            // 监听用户交互（点击、触摸）
+            const interactiveEvents = ['click', 'touchstart'];
+            interactiveEvents.forEach(eventType => {
+                document.body.addEventListener(eventType, tryAutoPlayOnInteraction);
+            });
+        });
+
+        // 检查音乐文件是否能正常加载
+        bgMusic.addEventListener('canplaythrough', () => {
+            console.log('音乐文件加载成功');
+        });
+
+        bgMusic.addEventListener('error', (e) => {
+            console.error('音乐文件加载失败:', e);
+            showHint('音乐文件加载失败，请检查 ./1.mp3 是否存在');
         });
 
         /* ==========================================
