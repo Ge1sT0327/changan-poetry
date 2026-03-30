@@ -40,7 +40,6 @@
             height: 100vh;
             z-index: -3;
             background-color: var(--xuan-se);
-            /* 👇 修改此处为你的本地背景图路径，例如 ./images/changan-bg.jpg */
             background-image: url('./1.jpg'); 
             background-size: cover;
             background-position: center;
@@ -354,17 +353,16 @@
 </head>
 <body>
 
-    <!-- 背景音乐控制按钮 - 新增 -->
+    <!-- 背景音乐控制按钮 -->
     <div class="music-control paused" id="musicControl" onclick="toggleMusic()" title="点击播放/暂停背景音乐">
         <svg viewBox="0 0 24 24" id="musicIcon">
-            <!-- 音符图标 -->
             <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/>
         </svg>
     </div>
     <div class="music-hint" id="musicHint">雅乐</div>
 
     <audio id="bgMusic" loop preload="auto">
-        <source src="./1.mp3">
+        <source src="./1.mp3" type="audio/mpeg">
         您的浏览器不支持音频播放。
     </audio>
 
@@ -422,7 +420,7 @@
 
     <script>
         /* ==========================================
-           1. 背景音乐控制 (修复版)
+           1. 背景音乐控制
            ========================================== */
         const bgMusic = document.getElementById('bgMusic');
         const musicControl = document.getElementById('musicControl');
@@ -435,31 +433,34 @@
 
         // 初始化音量
         bgMusic.volume = 0.4; 
+        
+        // 页面加载后尝试自动播放（需要用户交互）
+        let musicPlayed = false;
 
-        // 核心播放/暂停逻辑
-        function toggleMusic() {
+        // 全局 toggleMusic 函数
+        window.toggleMusic = function() {
             if (bgMusic.paused) {
-                // 尝试播放
                 bgMusic.play().then(() => {
-                    // 播放成功
                     musicControl.classList.remove('paused');
                     musicControl.classList.add('playing');
-                    musicIcon.querySelector('path').setAttribute('d', ICON_PAUSE);
+                    const path = musicIcon.querySelector('path');
+                    if (path) path.setAttribute('d', ICON_PAUSE);
                     showHint('雅乐已启');
+                    musicPlayed = true;
                 }).catch(err => {
-                    // 播放失败（通常是因为浏览器限制，提示用户）
-                    console.error(err);
-                    showHint('请再点一次');
+                    console.error('播放失败:', err);
+                    showHint('请点击页面任意处');
                 });
             } else {
-                // 暂停
                 bgMusic.pause();
                 musicControl.classList.remove('playing');
                 musicControl.classList.add('paused');
-                musicIcon.querySelector('path').setAttribute('d', ICON_PLAY);
+                const path = musicIcon.querySelector('path');
+                if (path) path.setAttribute('d', ICON_PLAY);
                 showHint('雅乐已停');
+                musicPlayed = false;
             }
-        }
+        };
 
         function showHint(text) {
             musicHint.textContent = text;
@@ -469,29 +470,45 @@
             }, 2000);
         }
 
+        // 用户首次点击页面任意位置时尝试播放音乐（解决浏览器自动播放策略）
+        function tryAutoPlayOnInteraction() {
+            if (!musicPlayed && bgMusic.paused) {
+                bgMusic.play().then(() => {
+                    musicControl.classList.remove('paused');
+                    musicControl.classList.add('playing');
+                    const path = musicIcon.querySelector('path');
+                    if (path) path.setAttribute('d', ICON_PAUSE);
+                    showHint('雅乐已启');
+                    musicPlayed = true;
+                }).catch(() => {});
+            }
+        }
+
         // 页面加载后的友好提示
         window.addEventListener('load', () => {
             setTimeout(() => {
                 showHint('点击右上角开启雅乐');
             }, 1500);
+            
+            // 监听用户交互
+            document.body.addEventListener('click', tryAutoPlayOnInteraction);
+            document.body.addEventListener('touchstart', tryAutoPlayOnInteraction);
         });
 
         /* ==========================================
-           2. 移除图片生成相关的所有代码
-           ========================================== */
-
-        /* ==========================================
-           3. AI 文本接口配置区域（仅保留文本生成）
+           2. AI 文本接口配置区域
            ========================================== */
         const TEXT_API_KEY = '10f8cb84a6fe4f88941c205118151980.cOmaBThvE07AS0Od'; 
         const TEXT_API_URL = 'https://open.bigmodel.cn/api/paas/v4/chat/completions'; 
         const TEXT_MODEL = 'glm-4.6v-flashx';
 
-        // 状态追踪 - 移除图片相关状态
+        // 状态追踪
         let currentAnalysis = ""; 
         let currentPoetry = "";   
 
-        window.onload = loadHistory;
+        window.onload = function() {
+            loadHistory();
+        };
 
         async function generateContent() {
             const keyword = document.getElementById('keywordInput').value.trim();
@@ -507,7 +524,6 @@
                 return;
             }
 
-            // UI 初始化
             btn.innerText = "挥毫中...";
             btn.disabled = true;
             analysisBtn.classList.add('hidden');
@@ -515,7 +531,6 @@
             outputArea.innerHTML = '<span class="cursor"></span>';
             currentAnalysis = "";
 
-            // 仅调用诗词生成（移除图片生成调用）
             await generatePoetry(keyword, genre, style, outputArea, btn, analysisBtn, posterBtn);
         }
 
@@ -523,7 +538,7 @@
             const systemPrompt = `你是一位才华横溢的大唐诗人。请根据用户提供的关键词、体裁和风格进行创作。
 要求：
 1. 意象需紧扣"长安文脉"与"陕西特色"，并将用户提供的关键词自然融入诗意之中。
-2. 核心要求：切忌每首诗都以“长安”二字开篇！起句必须灵动多样，可从写景（如风、月、雨、雪）、状物、抒情或咏史等不同角度巧妙切入，避免生搬硬套。
+2. 核心要求：切忌每首诗都以"长安"二字开篇！起句必须灵动多样，可从写景（如风、月、雨、雪）、状物、抒情或咏史等不同角度巧妙切入，避免生搬硬套。
 3. 语言需严格符合所选古诗词格律与平仄，意境深远，用词要高雅凝练。
 4. 必须严格以 JSON 格式返回，包含两个字段："poetry" (诗歌正文，保留换行符\n) 和 "analysis" (现代白话文赏析，50-80字)。只输出 JSON，绝不要输出其他废话。`;
 
@@ -558,17 +573,15 @@
                 currentAnalysis = parsedData.analysis;
 
                 typeWriterEffect(currentPoetry, outputArea, () => {
-                    // 恢复按钮状态
                     btn.innerText = "智咏长安";
                     btn.disabled = false;
-                    // 显示赏析和海报按钮
                     analysisBtn.classList.remove('hidden');
                     posterBtn.classList.remove('hidden');
-                    // 保存到历史（移除背景图相关参数）
                     saveToHistory(keyword, genre, style, currentPoetry, currentAnalysis);
                 });
 
             } catch (error) {
+                console.error(error);
                 outputArea.innerHTML = "风烟迷眼，<br>墨迹难寻。<br>（文本API调用失败）";
                 btn.innerText = "智咏长安";
                 btn.disabled = false;
@@ -578,30 +591,38 @@
         function typeWriterEffect(text, element, callback) {
             element.innerHTML = '';
             let i = 0;
-            const formattedText = text.replace(/([。！？])/g, '$1<br>').replace(/<br><br>/g, '<br>').split(''); 
-
-            const interval = setInterval(() => {
-                if (i < formattedText.length) {
-                    let char = formattedText[i];
-                    if (char === '<' && formattedText.slice(i, i+4).join('') === '<br>') {
-                        element.innerHTML += '<br>';
-                        i += 3;
-                    } else {
-                        element.innerHTML += char;
-                    }
-                    i++;
-                    if (!element.querySelector('.cursor')) element.innerHTML += '<span class="cursor"></span>';
-                    else element.appendChild(element.querySelector('.cursor'));
-                } else {
-                    clearInterval(interval);
-                    if(element.querySelector('.cursor')) element.querySelector('.cursor').remove();
-                    if(callback) callback();
+            // 修复：正确处理换行符
+            const lines = text.split('\n');
+            let currentLine = 0;
+            let charIndex = 0;
+            
+            function typeNextChar() {
+                if (currentLine >= lines.length) {
+                    if (callback) callback();
+                    return;
                 }
-            }, 150); 
+                
+                const currentText = lines[currentLine];
+                if (charIndex === 0 && currentLine > 0) {
+                    element.innerHTML += '<br>';
+                }
+                
+                if (charIndex < currentText.length) {
+                    element.innerHTML += currentText[charIndex];
+                    charIndex++;
+                    setTimeout(typeNextChar, 100);
+                } else {
+                    currentLine++;
+                    charIndex = 0;
+                    setTimeout(typeNextChar, 100);
+                }
+            }
+            
+            typeNextChar();
         }
 
         /* ==========================================
-           4. 交互与导出
+           3. 交互与导出
            ========================================== */
         function toggleAnalysis() {
             const modal = document.getElementById('analysisModal');
@@ -661,7 +682,7 @@
             document.getElementById('historyDrawer').classList.toggle('open');
         }
 
-        // 保存历史 - 移除背景图相关参数
+        // 保存历史 - 修复正则表达式问题
         function saveToHistory(keyword, genre, style, poetry, analysis) {
             let history = JSON.parse(localStorage.getItem('changan_poetry_history')) || [];
 
@@ -676,7 +697,7 @@
             loadHistory();
         }
 
-        // 加载历史 - 移除背景图相关逻辑
+        // 加载历史 - 修复正则表达式错误
         function loadHistory() {
             const historyList = document.getElementById('historyList');
             let history = JSON.parse(localStorage.getItem('changan_poetry_history')) || [];
@@ -690,6 +711,7 @@
             history.forEach(item => {
                 const div = document.createElement('div');
                 div.className = 'history-item';
+                // 修复：使用 RegExp 构造函数代替正则字面量
                 const previewText = item.poetry.split(new RegExp('[。！？]'))[0] || item.keyword;
 
                 div.innerHTML = `
