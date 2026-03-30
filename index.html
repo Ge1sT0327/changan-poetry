@@ -3,8 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>诗启长安，智咏征程</title>
+    <title>诗启长安 · 智咏征程</title>
+    <!-- 引入 html2canvas 用于海报生成 -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <!-- 引入 Howler.js 用于更可靠的音频控制 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/howler/2.2.3/howler.min.js"></script>
     <style>
         * {
             margin: 0;
@@ -21,7 +24,7 @@
             color: #f9f6f0;
         }
 
-        /* 背景层：确保图片覆盖且不被遮挡 */
+        /* 背景层：通过 JS 动态设置背景图，失败时使用深色渐变 */
         .background-layer {
             position: fixed;
             top: 0;
@@ -29,10 +32,13 @@
             width: 100%;
             height: 100%;
             z-index: -2;
-            background-size: cover !important;
-            background-position: center !important;
-            background-repeat: no-repeat !important;
-            background-color: #1a1a1a;
+            background: linear-gradient(135deg, #2c2418 0%, #1a1a1a 100%);
+            transition: background-image 0.3s ease;
+        }
+        .background-layer.has-image {
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
         }
         /* 半透明遮罩，提升文字可读性 */
         .background-layer::after {
@@ -46,7 +52,7 @@
             pointer-events: none;
         }
 
-        #posterArea {
+        #app {
             width: 100%;
             height: 100%;
             display: flex;
@@ -55,7 +61,7 @@
             padding: 20px;
         }
 
-        .container {
+        .card {
             position: relative;
             width: 90vw;
             max-width: 1300px;
@@ -73,7 +79,7 @@
             z-index: 1;
         }
 
-        .interaction-area {
+        .controls {
             width: 340px;
             display: flex;
             flex-direction: column;
@@ -172,8 +178,8 @@
             margin-top: 5px;
         }
 
-        /* 诗歌区域：竖排优化，增加滚动和断行保护 */
-        .poetry-display {
+        /* 诗词展示区域 */
+        .poetry-area {
             writing-mode: vertical-rl;
             text-orientation: upright;
             font-size: 1.6rem;
@@ -189,18 +195,18 @@
             letter-spacing: 4px;
         }
 
-        /* 移动端改用横排 */
+        /* 移动端改为横排 */
         @media (max-width: 768px) {
-            .container {
+            .card {
                 flex-direction: column;
                 padding: 20px;
                 height: 90vh;
             }
-            .interaction-area {
+            .controls {
                 width: 100%;
                 text-align: center;
             }
-            .poetry-display {
+            .poetry-area {
                 writing-mode: horizontal-tb;
                 font-size: 1.2rem;
                 margin-left: 0;
@@ -215,8 +221,8 @@
             h1 { font-size: 2rem; }
         }
 
-        /* 音乐控件 */
-        .music-control {
+        /* 音乐控制按钮 */
+        .music-btn {
             position: fixed;
             top: 20px;
             right: 20px;
@@ -233,40 +239,43 @@
             justify-content: center;
             transition: all 0.3s;
         }
-        .music-control:hover {
+        .music-btn:hover {
             transform: scale(1.05);
             border-color: #c21f30;
         }
-        .music-control svg {
+        .music-btn svg {
             width: 28px;
             height: 28px;
             fill: #d4af37;
         }
-        .music-control.playing {
+        .music-btn.playing {
             animation: rotate 8s linear infinite;
         }
         @keyframes rotate {
             from { transform: rotate(0deg); }
             to { transform: rotate(360deg); }
         }
-        .music-hint {
+
+        /* 提示浮层 */
+        .toast {
             position: fixed;
             top: 82px;
             right: 20px;
-            background: rgba(0,0,0,0.6);
-            padding: 4px 12px;
-            border-radius: 20px;
-            font-size: 0.7rem;
+            background: rgba(0,0,0,0.7);
+            padding: 6px 14px;
+            border-radius: 30px;
+            font-size: 0.75rem;
             color: #d4af37;
             opacity: 0;
-            transition: opacity 0.3s;
+            transition: opacity 0.2s;
             pointer-events: none;
             white-space: nowrap;
+            z-index: 1001;
         }
-        .music-hint.show { opacity: 1; }
+        .toast.show { opacity: 1; }
 
         /* 弹窗 */
-        .analysis-modal {
+        .modal {
             display: none;
             position: absolute;
             inset: 0;
@@ -278,7 +287,7 @@
             flex-direction: column;
             z-index: 20;
         }
-        .analysis-content {
+        .modal-content {
             max-width: 80%;
             font-size: 1.2rem;
             line-height: 1.8;
@@ -288,7 +297,7 @@
         }
 
         /* 历史抽屉 */
-        .history-drawer {
+        .drawer {
             position: fixed;
             top: 0;
             right: -380px;
@@ -302,8 +311,8 @@
             overflow-y: auto;
             backdrop-filter: blur(8px);
         }
-        .history-drawer.open { right: 0; }
-        .history-drawer h2 {
+        .drawer.open { right: 0; }
+        .drawer h2 {
             color: #d4af37;
             text-align: center;
             margin: 30px 0 20px;
@@ -351,25 +360,18 @@
 </head>
 <body>
 
-    <!-- 背景音乐控件 -->
-    <div class="music-control paused" id="musicControl">
+    <!-- 音乐控制按钮 -->
+    <div class="music-btn" id="musicBtn">
         <svg viewBox="0 0 24 24">
             <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/>
         </svg>
     </div>
-    <div class="music-hint" id="musicHint">雅乐</div>
+    <div class="toast" id="toastMsg"></div>
 
-    <!-- 音频：只使用本地文件 -->
-    <audio id="bgMusic" loop preload="auto">
-        <source src="./1.mp3" type="audio/mpeg">
-    </audio>
-
-    <!-- 背景层：JS 动态设置背景图以确保加载 -->
-    <div class="background-layer" id="bgLayer" style="background-image: url('./1.jpg');"></div>
-
-    <div id="posterArea">
-        <div class="container" id="mainContainer">
-            <div class="interaction-area" id="controlsArea">
+    <!-- 音频元素：由 Howler 管理，但保留 HTML 元素作为备选 -->
+    <div id="app">
+        <div class="card">
+            <div class="controls">
                 <h1>诗启长安</h1>
                 <p class="subtitle">AI 赋能 · 智咏征程</p>
 
@@ -391,135 +393,133 @@
                 </div>
 
                 <input type="text" id="keywordInput" placeholder="输入长安意象 (如: 大雁塔, 曲江流饮)">
-                <button id="generateBtn" onclick="generateContent()">智咏长安</button>
+                <button id="generateBtn">智咏长安</button>
 
                 <div class="action-buttons">
-                    <button class="btn-secondary hidden" id="analysisBtn" onclick="toggleAnalysis()">诗意解签</button>
-                    <button class="btn-secondary hidden" id="posterBtn" onclick="exportPoster()">生成海报</button>
-                    <button class="btn-secondary" onclick="toggleHistory()">游侠留墨</button>
+                    <button class="btn-secondary hidden" id="analysisBtn">诗意解签</button>
+                    <button class="btn-secondary hidden" id="posterBtn">生成海报</button>
+                    <button class="btn-secondary" id="historyBtn">游侠留墨</button>
                 </div>
             </div>
 
-            <div class="poetry-display" id="poetryOutput">
+            <div class="poetry-area" id="poetryArea">
                 待客入长安，<br>落笔生云烟。
             </div>
 
-            <div class="analysis-modal" id="analysisModal">
-                <div class="analysis-content" id="analysisContent"></div>
-                <button class="btn-secondary" onclick="toggleAnalysis()">收起卷轴</button>
+            <div class="modal" id="analysisModal">
+                <div class="modal-content" id="analysisContent"></div>
+                <button class="btn-secondary" id="closeAnalysisBtn">收起卷轴</button>
             </div>
         </div>
     </div>
 
-    <div class="history-drawer" id="historyDrawer">
-        <button class="close-btn" onclick="toggleHistory()">×</button>
+    <div class="drawer" id="historyDrawer">
+        <button class="close-btn" id="closeDrawerBtn">×</button>
         <h2>游侠留墨</h2>
         <div id="historyList"></div>
     </div>
 
     <script>
-        // ===================== 1. 背景图确认 =====================
-        const bgLayer = document.getElementById('bgLayer');
-        const imgTest = new Image();
-        imgTest.onload = () => {
-            console.log('✅ 背景图加载成功: ./1.jpg');
-            bgLayer.style.backgroundImage = "url('./1.jpg')";
-        };
-        imgTest.onerror = () => {
-            console.warn('❌ 背景图加载失败，使用纯色背景');
-        };
-        imgTest.src = './1.jpg';
-
-        // ===================== 2. 音乐控制 =====================
-        const bgMusic = document.getElementById('bgMusic');
-        const musicControl = document.getElementById('musicControl');
-        const musicHint = document.getElementById('musicHint');
-        const musicIconPath = musicControl.querySelector('svg path');
-
-        const ICON_PLAY = "M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z";
-        const ICON_PAUSE = "M6 19h4V5H6v14zm8-14v14h4V5h-4z";
-
-        bgMusic.volume = 0.8;   // 设置音量较大
-        bgMusic.loop = true;
-
-        let musicPlaying = false;
-
-        function showHint(msg) {
-            musicHint.textContent = msg;
-            musicHint.classList.add('show');
-            setTimeout(() => musicHint.classList.remove('show'), 2500);
+        // ===================== 稳健的背景图加载 =====================
+        const bgLayer = document.createElement('div');
+        bgLayer.className = 'background-layer';
+        document.body.insertBefore(bgLayer, document.body.firstChild);
+        
+        function loadBackgroundImage(url) {
+            const img = new Image();
+            img.onload = () => {
+                bgLayer.style.backgroundImage = `url('${url}')`;
+                bgLayer.classList.add('has-image');
+                console.log('背景图加载成功:', url);
+                showToast('背景图已加载');
+            };
+            img.onerror = () => {
+                console.warn('背景图加载失败，使用默认渐变');
+                bgLayer.classList.remove('has-image');
+                showToast('背景图加载失败，使用默认背景');
+            };
+            img.src = url;
         }
+        loadBackgroundImage('./1.jpg');
 
-        function updateUI(playing) {
-            if (playing) {
-                musicControl.classList.remove('paused');
-                musicControl.classList.add('playing');
-                musicIconPath.setAttribute('d', ICON_PAUSE);
-            } else {
-                musicControl.classList.remove('playing');
-                musicControl.classList.add('paused');
-                musicIconPath.setAttribute('d', ICON_PLAY);
-            }
-        }
+        // ===================== 音频控制：使用 Howler.js 解决自动播放策略 =====================
+        let sound = null;
+        let isPlaying = false;
 
-        function playMusic() {
-            bgMusic.play().then(() => {
-                updateUI(true);
-                musicPlaying = true;
-                showHint('雅乐已启');
-                console.log('✅ 音乐播放成功');
-            }).catch(err => {
-                console.error('播放失败:', err);
-                showHint('请点击页面任意处启用音乐');
-                // 播放失败时重置UI
-                updateUI(false);
-                musicPlaying = false;
+        function initAudio() {
+            if (sound) return;
+            // 使用 Howler 创建音频实例
+            sound = new Howl({
+                src: ['./1.mp3'],
+                loop: true,
+                volume: 0.6,
+                autoplay: false,
+                html5: true,  // 使用 HTML5 Audio 以兼容移动端
+                onload: () => console.log('音频加载成功'),
+                onloaderror: () => {
+                    console.warn('音频加载失败，请检查 ./1.mp3');
+                    showToast('音乐文件未找到');
+                },
+                onplay: () => {
+                    isPlaying = true;
+                    updateMusicBtnUI(true);
+                },
+                onpause: () => {
+                    isPlaying = false;
+                    updateMusicBtnUI(false);
+                },
+                onend: () => {
+                    // 循环由 loop 处理，不需要额外操作
+                }
             });
         }
 
-        function pauseMusic() {
-            bgMusic.pause();
-            updateUI(false);
-            musicPlaying = false;
-            showHint('雅乐已停');
-            console.log('⏸️ 音乐暂停');
-        }
-
-        // 按钮点击事件
-        musicControl.onclick = (e) => {
-            e.stopPropagation();
-            if (bgMusic.paused) {
-                playMusic();
+        function toggleMusic() {
+            if (!sound) initAudio();
+            if (isPlaying) {
+                sound.pause();
             } else {
-                pauseMusic();
-            }
-        };
-
-        // 用户首次点击页面任意位置尝试自动播放（但需要用户主动点击）
-        let autoPlayTriggered = false;
-        function tryAutoPlay() {
-            if (autoPlayTriggered) return;
-            autoPlayTriggered = true;
-            if (bgMusic.paused) {
-                playMusic();
+                // 尝试播放（浏览器会自动处理用户交互许可）
+                sound.play();
             }
         }
-        document.body.addEventListener('click', tryAutoPlay, { once: true });
-        document.body.addEventListener('touchstart', tryAutoPlay, { once: true });
 
-        // 音乐加载状态
-        bgMusic.addEventListener('canplaythrough', () => {
-            console.log('✅ 音乐文件加载成功，可播放');
-        });
-        bgMusic.addEventListener('error', () => {
-            console.warn('❌ 音乐文件加载失败');
-            showHint('未找到音乐文件 ./1.mp3');
+        function updateMusicBtnUI(playing) {
+            const btn = document.getElementById('musicBtn');
+            const path = btn.querySelector('svg path');
+            if (playing) {
+                btn.classList.add('playing');
+                path.setAttribute('d', "M6 19h4V5H6v14zm8-14v14h4V5h-4z");
+            } else {
+                btn.classList.remove('playing');
+                path.setAttribute('d', "M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z");
+            }
+        }
+
+        // 绑定音乐按钮事件
+        document.getElementById('musicBtn').addEventListener('click', (e) => {
+            e.stopPropagation();
+            toggleMusic();
         });
 
-        // ===================== 3. AI 配置 =====================
-        const TEXT_API_KEY = '10f8cb84a6fe4f88941c205118151980.cOmaBThvE07AS0Od';
-        const TEXT_API_URL = 'https://open.bigmodel.cn/api/paas/v4/chat/completions';
-        const TEXT_MODEL = 'glm-4.6v-flashx';
+        // 首次用户交互时初始化音频（符合浏览器策略）
+        let audioInitialized = false;
+        function onUserInteraction() {
+            if (!audioInitialized) {
+                audioInitialized = true;
+                initAudio();
+                // 可选：尝试自动播放（但大多数情况会被阻止，需要用户再点一次）
+                // 这里不自动播放，让用户主动点击音乐按钮，更可靠
+                showToast('点击音符开启雅乐');
+            }
+        }
+        document.body.addEventListener('click', onUserInteraction, { once: true });
+        document.body.addEventListener('touchstart', onUserInteraction, { once: true });
+
+        // ===================== AI 接口 =====================
+        const API_KEY = '10f8cb84a6fe4f88941c205118151980.cOmaBThvE07AS0Od';
+        const API_URL = 'https://open.bigmodel.cn/api/paas/v4/chat/completions';
+        const MODEL = 'glm-4.6v-flashx';
 
         let currentPoetry = '';
         let currentAnalysis = '';
@@ -548,10 +548,10 @@
                     document.getElementById('keywordInput').value = item.keyword;
                     document.getElementById('genreSelect').value = item.genre;
                     document.getElementById('styleSelect').value = item.style;
-                    document.getElementById('poetryOutput').innerHTML = item.poetry.replace(/\n/g, '<br>');
+                    document.getElementById('poetryArea').innerHTML = item.poetry.replace(/\n/g, '<br>');
                     document.getElementById('analysisBtn').classList.remove('hidden');
                     document.getElementById('posterBtn').classList.remove('hidden');
-                    toggleHistory();
+                    toggleDrawer();
                 };
                 historyList.appendChild(div);
             });
@@ -573,7 +573,7 @@
             const keyword = document.getElementById('keywordInput').value.trim();
             const genre = document.getElementById('genreSelect').value;
             const style = document.getElementById('styleSelect').value;
-            const outputArea = document.getElementById('poetryOutput');
+            const poetryArea = document.getElementById('poetryArea');
             const genBtn = document.getElementById('generateBtn');
             const analysisBtn = document.getElementById('analysisBtn');
             const posterBtn = document.getElementById('posterBtn');
@@ -587,7 +587,7 @@
             genBtn.disabled = true;
             analysisBtn.classList.add('hidden');
             posterBtn.classList.add('hidden');
-            outputArea.innerHTML = '<span class="cursor"></span>';
+            poetryArea.innerHTML = '<span class="cursor"></span>';
             currentAnalysis = '';
 
             const systemPrompt = `你是一位才华横溢的大唐诗人。请根据用户提供的关键词、体裁和风格进行创作。
@@ -600,14 +600,14 @@
             const userPrompt = `关键词：${keyword}；体裁：${genre}；风格：${style}`;
 
             try {
-                const res = await fetch(TEXT_API_URL, {
+                const res = await fetch(API_URL, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${TEXT_API_KEY}`
+                        'Authorization': `Bearer ${API_KEY}`
                     },
                     body: JSON.stringify({
-                        model: TEXT_MODEL,
+                        model: MODEL,
                         messages: [
                             { role: 'system', content: systemPrompt },
                             { role: 'user', content: userPrompt }
@@ -624,7 +624,7 @@
                 currentPoetry = parsed.poetry;
                 currentAnalysis = parsed.analysis;
 
-                outputArea.innerHTML = currentPoetry.replace(/\n/g, '<br>');
+                poetryArea.innerHTML = currentPoetry.replace(/\n/g, '<br>');
                 genBtn.innerText = '智咏长安';
                 genBtn.disabled = false;
                 analysisBtn.classList.remove('hidden');
@@ -632,30 +632,30 @@
                 saveToHistory(keyword, genre, style, currentPoetry, currentAnalysis);
             } catch (err) {
                 console.error(err);
-                outputArea.innerHTML = '风烟迷眼，<br>墨迹难寻。<br>（请检查网络后重试）';
+                poetryArea.innerHTML = '风烟迷眼，<br>墨迹难寻。<br>（请检查网络后重试）';
                 genBtn.innerText = '智咏长安';
                 genBtn.disabled = false;
             }
         }
 
-        function toggleAnalysis() {
+        function showAnalysis() {
             const modal = document.getElementById('analysisModal');
             const contentDiv = document.getElementById('analysisContent');
-            if (modal.style.display === 'flex') {
-                modal.style.display = 'none';
-            } else {
-                contentDiv.innerText = currentAnalysis || '暂无赏析内容';
-                modal.style.display = 'flex';
-            }
+            contentDiv.innerText = currentAnalysis || '暂无赏析内容';
+            modal.style.display = 'flex';
+        }
+
+        function closeAnalysis() {
+            document.getElementById('analysisModal').style.display = 'none';
         }
 
         function exportPoster() {
-            const container = document.getElementById('mainContainer');
-            const controls = document.getElementById('controlsArea');
+            const card = document.querySelector('.card');
+            const controls = document.querySelector('.controls');
             const btn = document.getElementById('posterBtn');
             controls.style.display = 'none';
             btn.innerText = '绘制中...';
-            html2canvas(container, {
+            html2canvas(card, {
                 backgroundColor: '#1a1a1a',
                 scale: 2,
                 useCORS: true,
@@ -675,18 +675,28 @@
             });
         }
 
-        function toggleHistory() {
+        function toggleDrawer() {
             document.getElementById('historyDrawer').classList.toggle('open');
         }
 
-        // 页面启动
-        window.addEventListener('load', () => {
-            loadHistory();
-            setTimeout(() => {
-                showHint('点击右上角音符开启雅乐');
-            }, 1000);
-            console.log('页面已加载，等待用户交互');
-        });
+        function showToast(msg) {
+            const toast = document.getElementById('toastMsg');
+            toast.textContent = msg;
+            toast.classList.add('show');
+            setTimeout(() => toast.classList.remove('show'), 2500);
+        }
+
+        // 绑定事件
+        document.getElementById('generateBtn').addEventListener('click', generateContent);
+        document.getElementById('analysisBtn').addEventListener('click', showAnalysis);
+        document.getElementById('closeAnalysisBtn').addEventListener('click', closeAnalysis);
+        document.getElementById('posterBtn').addEventListener('click', exportPoster);
+        document.getElementById('historyBtn').addEventListener('click', toggleDrawer);
+        document.getElementById('closeDrawerBtn').addEventListener('click', toggleDrawer);
+
+        // 页面初始化
+        loadHistory();
+        setTimeout(() => showToast('点击右上角音符开启雅乐'), 800);
     </script>
 </body>
 </html>
